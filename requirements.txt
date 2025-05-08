@@ -1,0 +1,13 @@
+pydantic-ai>=0.1.2
+sqlalchemy>=2.0.0
+dspy-ai>=2.3.2
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-dotenv>=1.0.0
+httpx>=0.25.0
+pydantic-settings>=2.0.0
+# Database drivers
+psycopg2-binary>=2.9.9  # PostgreSQL
+pymysql>=1.1.0  # MySQL
+pyodbc>=5.0.1  # MSSQL
+cx_oracle>=8.3.0  # Oracle 
