@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class QueryType(str, Enum):
@@ -28,6 +28,7 @@ class EntityType(str, Enum):
     FUNCTION = "FUNCTION"
     OPERATOR = "OPERATOR"
     CONDITION = "CONDITION"
+    DATABASE = "DATABASE"
     UNKNOWN = "UNKNOWN"
 
 
@@ -49,6 +50,12 @@ class UserQuery(BaseModel):
     user_id: Optional[str] = Field(None, description="User identifier")
     timestamp: Optional[str] = Field(None, description="Query timestamp")
     metadata: Dict = Field(default_factory=dict, description="Additional metadata about the query")
+    
+    @validator('text')
+    def text_must_not_be_empty(cls, v):
+        if not v or v.strip() == "":
+            raise ValueError('Query text cannot be empty')
+        return v
 
 
 class IntentOutput(BaseModel):

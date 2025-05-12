@@ -1,19 +1,17 @@
 """Main entry point for the Agentic Text-to-SQL application."""
 
+import argparse
 import logging
 import os
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
 
-from app.api.api import app as api_app
+from app.api.api import app
 from app.core.config import settings
-from app.utils.sample_db import create_sample_database
-from app.utils.sample_postgres_db import create_sample_postgres_database
-from app.utils.sample_mysql_db import create_sample_mysql_database
-from app.utils.sample_mssql_db import create_sample_mssql_database
-from app.utils.sample_oracle_db import create_sample_oracle_database
 
 # Configure logging
 logging.basicConfig(
@@ -25,53 +23,93 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Startup and shutdown events for the application.
-    
-    Args:
-        app: FastAPI application
-    """
+    """Handle startup and shutdown events."""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}")
     
-    # Initialize sample database based on database type
-    if settings.DB_TYPE == "sqlite":
-        create_sample_database()
-    elif settings.DB_TYPE == "postgresql":
-        create_sample_postgres_database()
-    elif settings.DB_TYPE == "mysql":
-        create_sample_mysql_database()
-    elif settings.DB_TYPE == "mssql":
-        create_sample_mssql_database()
-    elif settings.DB_TYPE == "oracle":
-        create_sample_oracle_database()
-    else:
-        logger.warning(f"Unsupported database type: {settings.DB_TYPE}")
-    
+    if settings.DEBUG:
+        # Build frontend in development mode
+        build_frontend()
+        
     yield
     
     # Shutdown
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 
 
+# Update the app's lifespan
+app.router.lifespan_context = lifespan
+
+
+def build_frontend():
+    """Build the frontend if it exists."""
+    frontend_dir = os.path.join(os.path.dirname(__file__), "app", "frontend")
+    if os.path.exists(frontend_dir):
+        logger.info("Building frontend...")
+        try:
+            # Check if node_modules exists, if not install dependencies
+            if not os.path.exists(os.path.join(frontend_dir, "node_modules")):
+                logger.info("Installing frontend dependencies...")
+                result = subprocess.run(
+                    ["npm", "install"],
+                    cwd=frontend_dir,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+            
+            # Build the frontend
+            result = subprocess.run(
+                ["npm", "run", "build"],
+                cwd=frontend_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.info("Frontend built successfully")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to build frontend: {e.stderr}")
+        except Exception as e:
+            logger.error(f"Error building frontend: {str(e)}")
+
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Agentic Text-to-SQL Server')
+    parser.add_argument('--host', type=str, default="0.0.0.0", 
+                        help='Host to bind the server to')
+    parser.add_argument('--port', type=int, default=int(os.environ.get("PORT", 8000)), 
+                        help='Port to bind the server to')
+    parser.add_argument('--reload', action='store_true', 
+                        help='Enable auto-reload for development')
+    parser.add_argument('--workers', type=int, default=1, 
+                        help='Number of worker processes')
+    parser.add_argument('--log-level', type=str, default=settings.LOG_LEVEL.lower(),
+                        choices=['debug', 'info', 'warning', 'error', 'critical'],
+                        help='Logging level')
+    return parser.parse_args()
+
+
 def main():
     """Run the application."""
-    logger.info("Starting Agentic Text-to-SQL application...")
-    
-    # Add lifespan to the app
-    api_app.router.lifespan_context = lifespan
-    
-    # Get port from environment or use default
-    port = int(os.environ.get("PORT", 8000))
-    
-    # Start the server
-    uvicorn.run(
-        "app.api.api:app",
-        host="0.0.0.0",
-        port=port,
-        reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower(),
-    )
+    try:
+        logger.info("Starting Agentic Text-to-SQL application...")
+        
+        # Parse command line arguments
+        args = parse_arguments()
+        
+        # Start the server
+        uvicorn.run(
+            "app.api.api:app",
+            host=args.host,
+            port=args.port,
+            reload=args.reload or settings.DEBUG,
+            workers=args.workers,
+            log_level=args.log_level,
+        )
+    except Exception as e:
+        logger.error(f"Failed to start server: {str(e)}", exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

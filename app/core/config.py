@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # LLM settings
     LLM_PROVIDER: str = Field(default="groq")  # groq, openai, anthropic, etc.
-    LLM_MODEL: str = Field(default="llama-3.1-8b", env="LLM_MODEL")
+    LLM_MODEL: str = Field(default="llama-3.3-70b-versatile", env="LLM_MODEL")
     LLM_API_KEY: Optional[str] = None
     LLM_TEMPERATURE: float = Field(default=0.1)
     LLM_MAX_TOKENS: int = Field(default=1024)

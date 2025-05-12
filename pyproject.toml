@@ -17,6 +17,8 @@ dependencies = [
     "pymysql>=1.1.0",
     "pyodbc>=5.0.1",
     "cx-oracle>=8.3.0",
+    "pytest-cov>=6.1.1",
+    "click>=8.1.7",
 ]
 
 [build-system]
@@ -25,3 +27,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[project.scripts]
+text2sql = "cli:cli"

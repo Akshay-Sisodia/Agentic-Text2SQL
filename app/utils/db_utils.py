@@ -2,6 +2,7 @@
 
 import logging
 import time
+import asyncio
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import text
@@ -10,87 +11,122 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.database import get_engine
 from app.schemas.response import QueryResult, QueryStatus
 from app.schemas.sql import (ColumnInfo, DatabaseInfo, TableInfo,
-                            SQLGenerationOutput)
+                            SQLGenerationOutput, Relationship)
 
 logger = logging.getLogger(__name__)
 
 
-def execute_query(sql_query: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
+def execute_query(sql_query: str, params: Optional[Dict[str, Any]] = None, engine=None) -> QueryResult:
     """
     Execute a SQL query and return the results.
     
     Args:
         sql_query: SQL query string to execute
         params: Optional parameters for parameterized queries
+        engine: Optional SQLAlchemy engine to use for the query
         
     Returns:
         QueryResult: Results of the query execution
     """
-    engine = get_engine()
+    if engine is None:
+        engine = get_engine()
+        
     start_time = time.time()
     
     result = QueryResult(status=QueryStatus.PENDING)
+    result.rows = []
     
     try:
         with engine.connect() as connection:
             # Execute the query
-            if params:
-                query_result = connection.execute(text(sql_query), params)
-            else:
-                query_result = connection.execute(text(sql_query))
+            query = text(sql_query)
+            execution_result = connection.execute(query, params or {})
             
-            # Get column names
-            if query_result.returns_rows:
-                result.column_names = list(query_result.keys())
-                
-                # Get rows
-                rows = []
-                for row in query_result:
-                    # Convert row to dictionary
-                    row_dict = {}
-                    for idx, col_name in enumerate(result.column_names):
-                        # Handle different data types
-                        value = row[idx]
-                        if value is not None:
-                            # Convert non-serializable objects to strings
-                            if not isinstance(value, (str, int, float, bool, type(None))):
-                                value = str(value)
-                        row_dict[col_name] = value
-                    rows.append(row_dict)
-                
-                result.rows = rows
-                result.row_count = len(rows)
-            else:
-                # For non-SELECT queries
-                result.row_count = query_result.rowcount
+            # Get column information
+            result.column_names = execution_result.keys()
             
+            # Create descriptive column information
+            result.columns = [
+                {
+                    "name": col_name,
+                    "type": str(execution_result.cursor.description[i][1]) if execution_result.cursor.description else "unknown",
+                    "display_size": execution_result.cursor.description[i][2] if execution_result.cursor.description else None
+                }
+                for i, col_name in enumerate(result.column_names)
+            ]
+            
+            # Fetch all rows (with reasonable limit)
+            MAX_ROWS = 1000  # Limit to prevent memory issues
+            result.rows = []
+            
+            for row in execution_result.fetchmany(MAX_ROWS):
+                result.rows.append(list(row))
+                
+            # Check if there are more rows
+            result.has_more_rows = len(result.rows) == MAX_ROWS
+            
+            # Update row count (approximate for large results)
+            result.row_count = len(result.rows)
+            if result.has_more_rows:
+                result.row_count = str(result.row_count) + "+"
+                
             # Set status to success
             result.status = QueryStatus.SUCCESS
             
     except SQLAlchemyError as e:
-        logger.error(f"Database error executing query: {str(e)}")
+        # Handle database errors
         result.status = QueryStatus.ERROR
-        result.error_message = str(e)
+        result.error = str(e)
+        logger.error(f"Database error executing query: {str(e)}")
         
     except Exception as e:
-        logger.error(f"Unexpected error executing query: {str(e)}")
+        # Handle other errors
         result.status = QueryStatus.ERROR
-        result.error_message = f"Unexpected error: {str(e)}"
-    
-    # Set execution time
-    result.execution_time = time.time() - start_time
-    
+        result.error = str(e)
+        logger.error(f"Error executing query: {str(e)}")
+        
+    finally:
+        # Record execution time
+        result.execution_time = time.time() - start_time
+        
     return result
 
 
-def get_schema_info() -> DatabaseInfo:
+def execute_generated_sql(sql: str, engine=None) -> QueryResult:
+    """
+    Execute SQL that was generated by the SQL agent.
+    
+    Args:
+        sql: SQL query string or SQLGenerationOutput object
+        engine: Optional SQLAlchemy engine to use for the query
+        
+    Returns:
+        QueryResult: Results of the query execution
+    """
+    if isinstance(sql, SQLGenerationOutput):
+        # If we received an object, extract the SQL string
+        sql_query = sql.sql
+    else:
+        # Otherwise assume it's a string
+        sql_query = sql
+        
+    # Execute the query
+    return execute_query(sql_query, engine=engine)
+
+
+def get_schema_info(engine=None) -> DatabaseInfo:
     """
     Get information about the database schema.
+    
+    Args:
+        engine: SQLAlchemy engine (optional, will use global engine if None)
     
     Returns:
         DatabaseInfo: Information about the database schema
     """
-    engine = get_engine()
+    if engine is None:
+        engine = get_engine()
+        
     db_name = engine.url.database or "unknown"
     
     # Initialize database info
@@ -136,18 +172,132 @@ def get_schema_info() -> DatabaseInfo:
                 """
             
             tables_result = connection.execute(text(tables_query))
-            table_names = [row[0] for row in tables_result]
             
-            # Get information for each table
-            for table_name in table_names:
-                table_info = get_table_info(connection, table_name, engine.name, db_name)
+            # Process each table
+            for table_row in tables_result:
+                table_name = table_row[0]
+                
+                # Create a new table entry
+                table_info = TableInfo(
+                    name=table_name,
+                    description=f"Table {table_name}",
+                    columns=[]
+                )
+                
+                # Get column information (dialect-specific)
+                if engine.name == 'sqlite':
+                    # For SQLite, get column info from PRAGMA
+                    columns_query = f"PRAGMA table_info({table_name})"
+                    columns_result = connection.execute(text(columns_query))
+                    
+                    for column_row in columns_result:
+                        # SQLite PRAGMA returns: cid, name, type, notnull, dflt_value, pk
+                        column_info = ColumnInfo(
+                            name=column_row[1],  # name
+                            data_type=column_row[2],  # type
+                            nullable=not column_row[3],  # NOT notnull
+                            primary_key=bool(column_row[5]),  # pk
+                            description=f"Column {column_row[1]} of type {column_row[2]}"
+                        )
+                        table_info.columns.append(column_info)
+                    
+                    # Get foreign key information
+                    foreign_keys_query = f"PRAGMA foreign_key_list({table_name})"
+                    foreign_keys_result = connection.execute(text(foreign_keys_query))
+                    
+                    for fk_row in foreign_keys_result:
+                        # Find the referenced column and update it
+                        column_name = fk_row[3]  # from
+                        ref_table = fk_row[2]    # table
+                        ref_column = fk_row[4]   # to
+                        
+                        for col in table_info.columns:
+                            if col.name == column_name:
+                                col.foreign_key = f"{ref_table}.{ref_column}"
+                                break
+                
+                elif engine.name in ['postgresql', 'mysql', 'mssql']:
+                    # For other databases, use information_schema
+                    columns_query = f"""
+                    SELECT column_name, data_type, is_nullable, 
+                           (CASE WHEN column_key = 'PRI' THEN 1 ELSE 0 END) as is_primary
+                    FROM information_schema.columns
+                    WHERE table_name = '{table_name}'
+                    """
+                    if engine.name == 'postgresql':
+                        columns_query = f"""
+                        SELECT column_name, data_type, is_nullable, 
+                               (CASE WHEN column_name IN (
+                                   SELECT column_name FROM information_schema.table_constraints tc
+                                   JOIN information_schema.key_column_usage kcu 
+                                   ON tc.constraint_name = kcu.constraint_name
+                                   WHERE tc.constraint_type = 'PRIMARY KEY' 
+                                   AND kcu.table_name = '{table_name}'
+                               ) THEN 1 ELSE 0 END) as is_primary
+                        FROM information_schema.columns
+                        WHERE table_name = '{table_name}'
+                        """
+                        
+                    columns_result = connection.execute(text(columns_query))
+                    
+                    for column_row in columns_result:
+                        column_info = ColumnInfo(
+                            name=column_row[0],  # column_name
+                            data_type=column_row[1],  # data_type
+                            nullable=column_row[2].lower() == 'yes',  # is_nullable
+                            primary_key=bool(column_row[3]),  # is_primary
+                            description=f"Column {column_row[0]} of type {column_row[1]}"
+                        )
+                        table_info.columns.append(column_info)
+                    
+                    # For PostgreSQL, get foreign key information
+                    if engine.name == 'postgresql':
+                        fk_query = f"""
+                        SELECT kcu.column_name, ccu.table_name, ccu.column_name
+                        FROM information_schema.table_constraints AS tc 
+                        JOIN information_schema.key_column_usage AS kcu
+                        ON tc.constraint_name = kcu.constraint_name
+                        JOIN information_schema.constraint_column_usage AS ccu 
+                        ON ccu.constraint_name = tc.constraint_name
+                        WHERE tc.constraint_type = 'FOREIGN KEY' 
+                        AND tc.table_name = '{table_name}'
+                        """
+                        fk_result = connection.execute(text(fk_query))
+                        
+                        for fk_row in fk_result:
+                            column_name = fk_row[0]  # column_name
+                            ref_table = fk_row[1]    # referenced table
+                            ref_column = fk_row[2]   # referenced column
+                            
+                            for col in table_info.columns:
+                                if col.name == column_name:
+                                    col.foreign_key = f"{ref_table}.{ref_column}"
+                                    break
+                
+                # Add this table to our list
                 db_info.tables.append(table_info)
-    
+                
+            # Add relationships based on foreign keys
+            relationships = []
+            for table in db_info.tables:
+                for column in table.columns:
+                    if column.foreign_key:
+                        ref_table, ref_column = column.foreign_key.split(".")
+                        relationship = Relationship(
+                            source_table=table.name,
+                            source_column=column.name,
+                            target_table=ref_table,
+                            target_column=ref_column
+                        )
+                        relationships.append(relationship)
+            
+            db_info.relationships = relationships
+            
+            return db_info
+            
     except Exception as e:
         logger.error(f"Error getting schema info: {str(e)}")
-        # Return partial info if available
-    
-    return db_info
+        return db_info  # Return what we have so far
 
 
 def get_table_info(connection, table_name: str, dialect: str, db_name: str = None) -> TableInfo:
@@ -464,25 +614,48 @@ def get_table_info(connection, table_name: str, dialect: str, db_name: str = Non
     return table_info
 
 
-def execute_generated_sql(sql_output: SQLGenerationOutput) -> QueryResult:
+async def get_sqlite_schema(db_path: str) -> DatabaseInfo:
     """
-    Execute a generated SQL query.
+    Get schema information for a SQLite database.
     
     Args:
-        sql_output: Generated SQL query output
+        db_path: Path to the SQLite database file
         
     Returns:
-        QueryResult: Results of the query execution
+        DatabaseInfo: Database schema information
     """
-    sql_query = sql_output.sql
+    # Use the synchronous get_schema_info in an async wrapper
+    # This could be refactored later for true async operation
+    loop = asyncio.get_event_loop()
     
-    # Basic security check
-    dangerous_operations = ["DROP", "TRUNCATE", "DELETE FROM", "ALTER TABLE"]
-    if any(op in sql_query.upper() for op in dangerous_operations):
-        result = QueryResult(status=QueryStatus.ERROR)
-        result.error_message = "Potentially harmful operation detected. Query execution aborted."
-        result.warnings.append("This query contains potentially harmful operations that could delete or modify data structure.")
-        return result
+    # Use the existing get_schema_info function
+    # We're running it in an executor because it's synchronous
+    # and contains potentially blocking I/O operations
+    db_info = await loop.run_in_executor(None, get_schema_info)
     
-    # Execute the query
-    return execute_query(sql_query) 
+    # Add relationships based on foreign keys
+    relationships = []
+    for table in db_info.tables:
+        for column in table.columns:
+            if column.foreign_key:
+                # Foreign key format is "table.column"
+                parts = column.foreign_key.split('.')
+                if len(parts) == 2:
+                    target_table, target_column = parts
+                    relationship = Relationship(
+                        source_table=table.name,
+                        source_column=column.name,
+                        target_table=target_table,
+                        target_column=target_column,
+                        relationship_type="MANY_TO_ONE"  # Default for most foreign keys
+                    )
+                    relationships.append(relationship)
+    
+    # Add relationships to database info
+    db_info.relationships = relationships
+    
+    # Add description if missing
+    if not db_info.description:
+        db_info.description = f"SQLite database at {db_path}"
+    
+    return db_info 
