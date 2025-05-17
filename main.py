@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 
 from app.api.api import app
 from app.core.config import settings
@@ -39,6 +40,44 @@ async def lifespan(app: FastAPI):
 
 # Update the app's lifespan
 app.router.lifespan_context = lifespan
+
+
+# Custom OpenAPI schema
+def custom_openapi():
+    """Generate custom OpenAPI schema."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    # Try to load OpenAPI schema from file
+    openapi_path = os.path.join(os.path.dirname(__file__), "openapi.yaml")
+    if os.path.exists(openapi_path):
+        import yaml
+        try:
+            with open(openapi_path, "r") as f:
+                app.openapi_schema = yaml.safe_load(f)
+                return app.openapi_schema
+        except Exception as e:
+            logger.error(f"Failed to load OpenAPI schema from file: {str(e)}")
+    
+    # Generate schema using FastAPI
+    openapi_schema = get_openapi(
+        title=settings.PROJECT_NAME,
+        version=settings.VERSION,
+        description=settings.DESCRIPTION,
+        routes=app.routes,
+    )
+    
+    # Customize schema
+    openapi_schema["info"]["x-logo"] = {
+        "url": "/static/logo.png"
+    }
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+# Set custom OpenAPI schema
+app.openapi = custom_openapi
 
 
 def build_frontend():

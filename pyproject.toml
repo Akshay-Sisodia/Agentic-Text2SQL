@@ -1,24 +1,32 @@
 [project]
-name = "agentic-text2sql"
+name = "agentic_text2sql"
 version = "0.1.0"
-description = "Agentic Text-to-SQL System using PydanticAI"
+description = "A Text-to-SQL system using PydanticAI agents"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
+authors = [
+    {name = "Akshay Sisodia", email = "akshaysisodia.studies@gmail.com"}
+]
 dependencies = [
     "pydantic-ai>=0.1.2",
     "sqlalchemy>=2.0.0",
-    "dspy-ai>=2.3.2",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-dotenv>=1.0.0",
     "httpx>=0.25.0",
     "pydantic-settings>=2.0.0",
-    "psycopg2-binary>=2.9.9",
-    "pymysql>=1.1.0",
-    "pyodbc>=5.0.1",
-    "cx-oracle>=8.3.0",
-    "pytest-cov>=6.1.1",
-    "click>=8.1.7",
+    "pyyaml>=6.0.0",
+    # Database drivers
+    "psycopg2-binary>=2.9.9",  # PostgreSQL
+    "pymysql>=1.1.0",  # MySQL
+    "pyodbc>=5.0.1",  # MSSQL
+    "cx_oracle>=8.3.0",  # Oracle
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
 ]
 
 [build-system]

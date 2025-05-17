@@ -15,6 +15,7 @@ class ColumnInfo(BaseModel):
     data_type: str = Field(..., description="SQL data type")
     nullable: bool = Field(default=True, description="Whether the column can be NULL")
     primary_key: bool = Field(default=False, description="Whether this is a primary key column")
+    unique: bool = Field(default=False, description="Whether this column has a UNIQUE constraint")
     foreign_key: Optional[str] = Field(None, description="Foreign key reference if applicable")
     description: Optional[str] = Field(None, description="Column description")
     sample_values: List[str] = Field(default_factory=list, description="Sample values from the column")

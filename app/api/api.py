@@ -11,8 +11,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Query, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
@@ -24,10 +23,9 @@ try:
     from app.agents.pydantic_intent_agent import classify_intent_enhanced
     from app.agents.pydantic_sql_agent import generate_sql_enhanced
     from app.agents.pydantic_explanation_agent import generate_explanation_enhanced
-    from app.agents import ENHANCED_AGENT_AVAILABLE, DSPY_AVAILABLE
+    from app.agents import ENHANCED_AGENT_AVAILABLE
 except ImportError:
     ENHANCED_AGENT_AVAILABLE = False
-    DSPY_AVAILABLE = False
     classify_intent_enhanced = classify_intent
     # These will be defined below, but importing here for completeness
     # generate_sql_enhanced = generate_sql
@@ -62,6 +60,9 @@ if not ENHANCED_AGENT_AVAILABLE:
     from app.agents.base_sql_agent import generate_sql as generate_sql_enhanced
     from app.agents.base_explanation_agent import generate_explanation as generate_explanation_enhanced
 
+# Set DSPY_AVAILABLE to False permanently
+DSPY_AVAILABLE = False
+
 # Setup logger
 logger = logging.getLogger(__name__)
 
@@ -86,10 +87,14 @@ app = FastAPI(
     description=settings.DESCRIPTION,
     version=settings.VERSION,
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_PREFIX}/docs",
-    redoc_url=f"{settings.API_PREFIX}/redoc",
+    docs_url="/docs",  # Make docs available at root /docs
+    redoc_url="/redoc",  # Make redoc available at root /redoc
     lifespan=lifespan,
 )
+
+# Also register routes for docs at the API prefix path
+app.get(f"{settings.API_PREFIX}/docs", include_in_schema=False)(app.routes[-2].endpoint)
+app.get(f"{settings.API_PREFIX}/redoc", include_in_schema=False)(app.routes[-1].endpoint)
 
 # Application state to store active database connection
 app.state.active_engine = None
@@ -110,30 +115,23 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "http://localhost:5173",  # Vite dev server
+        "https://agentic-text2sql.vercel.app",  # Your Vercel production domain
+        "https://*.vercel.app",  # Allow all Vercel preview deployments
+    ],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Try to mount the new frontend if it exists
-frontend_build_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
-if os.path.exists(frontend_build_dir):
-    app.mount("/", StaticFiles(directory=frontend_build_dir, html=True), name="frontend")
-else:
-    # Fallback to old static files
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    
-    # Root path to serve web UI
-    @app.get("/")
-    async def get_web_ui():
-        """Serve the web UI."""
-        return FileResponse(os.path.join(static_dir, "index.html"))
-
 # Create conversation storage (in-memory for simplicity)
 # In a production app, this should be a database
 conversations = {}
+
+# Create a history store for all queries
+query_history = []
 
 # Define agent types
 class AgentType(str, Enum):
@@ -211,10 +209,30 @@ def initialize_default_database():
                     app.state.active_engine = engine
                     app.state.active_db_url = database_url
                     logger.info(f"Connected to sample database: {SAMPLE_DB_PATH}")
+                    return True
         except Exception as e:
             logger.error(f"Failed to connect to sample database: {str(e)}")
     else:
         logger.warning(f"Sample database not found at: {SAMPLE_DB_PATH}")
+    
+    # If sample database connection failed, try to use default database URL
+    try:
+        database_url = get_database_url()
+        engine = get_engine(database_url)
+        
+        # Test connection
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT 1"))
+            if result.fetchone()[0] == 1:
+                # Store as the active engine
+                app.state.active_engine = engine
+                app.state.active_db_url = database_url
+                logger.info(f"Connected to default database: {database_url}")
+                return True
+    except Exception as e:
+        logger.error(f"Failed to connect to default database: {str(e)}")
+    
+    return False
 
 
 # Helper functions
@@ -329,7 +347,7 @@ async def process_query(
         # Always try to use enhanced agent first
         use_optimized = True
         use_enhanced = True
-        use_dspy = DSPY_AVAILABLE
+        use_dspy = False
         
         agent_type = AgentType.ENHANCED
         
@@ -344,7 +362,7 @@ async def process_query(
         timestamp = datetime.datetime.now().isoformat()
         
         user_query = UserQuery(
-            query=request.query,
+            text=request.query,
             timestamp=timestamp,
             conversation_id=conversation_id,
             user_id=request.user_id,
@@ -368,9 +386,9 @@ async def process_query(
             if use_optimized:
                 try:
                     logger.info("Attempting to use optimized intent agent")
-                    intent = classify_intent_optimized(
-                        query=request.query, 
-                        tables=tables_dict
+                    intent = await classify_intent_optimized(
+                        user_query=request.query, 
+                        database_schema=tables_dict
                     )
                     intent_agent_used = "optimized"
                 except Exception as e:
@@ -381,9 +399,9 @@ async def process_query(
             if intent is None and use_enhanced:
                 try:
                     logger.info("Attempting to use enhanced intent agent")
-                    intent = classify_intent_enhanced(
-                        query=request.query, 
-                        tables=tables_dict,
+                    intent = await classify_intent_enhanced(
+                        user_query=request.query, 
+                        database_schema=tables_dict,
                         use_dspy=use_dspy
                     )
                     intent_agent_used = AgentType.ENHANCED
@@ -393,9 +411,9 @@ async def process_query(
                     
             # If all fails, use base agent
             if intent is None:
-                intent = base_intent_classifier(
-                    query=request.query, 
-                    tables=tables_dict
+                intent = await base_intent_classifier(
+                    user_query=request.query, 
+                    database_schema=tables_dict
                 )
                 intent_agent_used = AgentType.BASE
                 
@@ -403,15 +421,34 @@ async def process_query(
             logger.error(f"Error in intent classification: {str(e)}")
             return Text2SQLResponse(
                 user_response=UserResponse(
-                    error=f"Failed to classify intent: {str(e)}"
+                    error=f"Failed to classify intent: {str(e)}",
+                    query=request.query,  # Use the original query value
+                    sql="",    # Add empty sql field to satisfy validation
+                    user_query=UserQuery(text=request.query, timestamp=timestamp, conversation_id=conversation_id)
                 ),
                 conversation_id=conversation_id,
                 timestamp=timestamp,
                 enhanced_agent_used=False
             )
             
-        logger.info(f"Classified intent: {intent.intent_type}")
-        
+        # Verify we have a valid intent object before proceeding
+        if intent is None or not hasattr(intent, 'query_type'):
+            error_msg = "Invalid intent object received"
+            logger.error(error_msg)
+            return Text2SQLResponse(
+                user_response=UserResponse(
+                    error=error_msg,
+                    query=request.query,
+                    sql="",
+                    user_query=UserQuery(text=request.query, timestamp=timestamp, conversation_id=conversation_id)
+                ),
+                conversation_id=conversation_id,
+                timestamp=timestamp,
+                enhanced_agent_used=False
+            )
+                
+        logger.info(f"Classified intent: {intent.query_type}")
+            
         # Step 2: Generate SQL
         sql_result = None
         sql_agent_used = None
@@ -419,10 +456,11 @@ async def process_query(
             if use_optimized:
                 try:
                     logger.info("Attempting to use optimized SQL agent")
-                    sql_result = generate_sql_optimized(
-                        query=request.query,
+                    sql_result = await generate_sql_optimized(
+                        user_query=user_query,
                         intent=intent,
-                        database_info=schema_info
+                        database_info=schema_info,
+                        conversation_history=conversation_history
                     )
                     sql_agent_used = "optimized"
                 except Exception as e:
@@ -433,7 +471,7 @@ async def process_query(
             if sql_result is None and use_enhanced:
                 try:
                     logger.info("Attempting to use enhanced SQL agent")
-                    sql_result = generate_sql_enhanced(
+                    sql_result = await generate_sql_enhanced(
                         user_query=user_query,
                         intent=intent,
                         database_info=schema_info,
@@ -459,15 +497,19 @@ async def process_query(
             logger.error(f"Error in SQL generation: {str(e)}")
             return Text2SQLResponse(
                 user_response=UserResponse(
-                    error=f"Failed to generate SQL: {str(e)}"
+                    error=f"Failed to generate SQL: {str(e)}",
+                    query=request.query,  # Use the original query value
+                    sql="",    # Add empty sql field to satisfy validation
+                    user_query=UserQuery(text=request.query, timestamp=timestamp, conversation_id=conversation_id)
                 ),
                 conversation_id=conversation_id,
                 timestamp=timestamp,
-                enhanced_agent_used=use_enhanced
+                enhanced_agent_used=(sql_agent_used == AgentType.ENHANCED),
+                optimized_agent_used=(sql_agent_used == "optimized")
             )
             
         logger.info(f"Generated SQL: {sql_result.sql}")
-        
+            
         # Step 3: Execute SQL if requested
         query_result = None
         if request.execute_query and sql_result and sql_result.sql:
@@ -478,9 +520,9 @@ async def process_query(
                 logger.error(f"Error executing SQL: {str(e)}")
                 query_result = QueryResult(
                     status=QueryStatus.ERROR,
-                    error=f"Failed to execute query: {str(e)}"
+                    error_message=f"Failed to execute query: {str(e)}"
                 )
-        
+            
         # Step 4: Generate explanation
         explanation = None
         explanation_agent_used = None
@@ -489,11 +531,12 @@ async def process_query(
             if use_optimized:
                 try:
                     logger.info("Attempting to use optimized explanation agent")
-                    explanation = generate_explanation_optimized(
-                        query=request.query,
-                        sql=sql_result.sql,
+                    explanation = await generate_explanation_optimized(
+                        user_query=user_query,
+                        sql_generation=sql_result,
+                        query_result=query_result,
                         explanation_type=request.explanation_type,
-                        query_result=query_result
+                        database_info=schema_info
                     )
                     explanation_agent_used = "optimized"
                 except Exception as e:
@@ -504,12 +547,11 @@ async def process_query(
             if explanation is None and use_enhanced:
                 try:
                     logger.info("Attempting to use enhanced explanation agent")
-                    explanation = generate_explanation_enhanced(
+                    explanation = await generate_explanation_enhanced(
                         user_query=user_query,
-                        sql=sql_result.sql,
-                        explanation_type=request.explanation_type,
+                        sql_generation=sql_result,
                         query_result=query_result,
-                        database_info=schema_info,
+                        explanation_type=request.explanation_type,
                         use_dspy=use_dspy
                     )
                     explanation_agent_used = AgentType.ENHANCED
@@ -519,12 +561,11 @@ async def process_query(
                     
             # If all fails, use base agent
             if explanation is None:
-                explanation = base_explanation_generator(
+                explanation = await generate_explanation(
                     user_query=user_query,
-                    sql=sql_result.sql,
-                    explanation_type=request.explanation_type,
+                    sql_generation=sql_result,
                     query_result=query_result,
-                    database_info=schema_info
+                    explanation_type=request.explanation_type
                 )
                 explanation_agent_used = AgentType.BASE
                 
@@ -538,11 +579,13 @@ async def process_query(
             
         # Create user response
         user_response = UserResponse(
-            query=request.query,
-            sql=sql_result.sql if sql_result else "",
+            user_query=user_query,
+            intent=intent.dict() if intent else None,
+            sql_generation=sql_result,
+            query_result=query_result,
             explanation=explanation,
-            result=query_result,
-            intent=intent.dict() if intent else None
+            conversation_id=conversation_id,
+            timestamp=timestamp
         )
         
         # Add to conversation history
@@ -558,25 +601,35 @@ async def process_query(
         processing_time = time.time() - start_time
         logger.info(f"Total processing time: {processing_time:.2f} seconds")
         
-        # Create response
-        response = Text2SQLResponse(
+        # Save updated conversation history
+        conversations[conversation_id] = conversation_history
+        
+        # Add to global query history
+        history_item = {
+            "id": str(uuid.uuid4()),
+            "query": request.query,
+            "sql": sql_result.sql if sql_result else None,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "conversation_id": conversation_id
+        }
+        query_history.append(history_item)
+        
+        return Text2SQLResponse(
             user_response=user_response,
             conversation_id=conversation_id,
             timestamp=timestamp,
             enhanced_agent_used=(sql_agent_used == AgentType.ENHANCED),
             optimized_agent_used=(sql_agent_used == "optimized")
         )
-        
-        # Save updated conversation history
-        conversations[conversation_id] = conversation_history
-        
-        return response
-        
+    
     except Exception as e:
         logger.error(f"Unexpected error in query processing: {str(e)}", exc_info=True)
         return Text2SQLResponse(
             user_response=UserResponse(
-                error=f"An unexpected error occurred: {str(e)}"
+                error=f"An unexpected error occurred: {str(e)}",
+                query=request.query,  # Use the original query value
+                sql="",    # Add empty sql field to satisfy validation
+                user_query=UserQuery(text=request.query, timestamp=timestamp, conversation_id=conversation_id)
             ),
             conversation_id=conversation_id,
             timestamp=datetime.datetime.now().isoformat(),
@@ -753,10 +806,7 @@ async def get_agent_info() -> AgentInfoResponse:
     current_type = "enhanced" if ENHANCED_AGENT_AVAILABLE else "base"
     
     if ENHANCED_AGENT_AVAILABLE:
-        if DSPY_AVAILABLE:
-            message = "Enhanced agent with DSPy optimization is used with automatic fallback to base agent if needed"
-        else:
-            message = "Enhanced agent is used with automatic fallback to base agent if needed"
+        message = "Enhanced agent is used with automatic fallback to base agent if needed"
     else:
         message = "Only base agent is available"
     
@@ -802,6 +852,16 @@ async def process_query(
     
     # Process using the main handler
     response = await process_query(text2sql_request, request)
+    
+    # Add to global query history if not already added by the main handler
+    history_item = {
+        "id": str(uuid.uuid4()),
+        "query": query,
+        "sql": response.user_response.sql_generation.sql if response.user_response.sql_generation else None,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "conversation_id": conversation_id
+    }
+    query_history.append(history_item)
     
     # Return just the user response part
     return response.user_response
@@ -861,6 +921,16 @@ async def execute_custom_sql(request: CustomSqlRequest) -> QueryResult:
                 "query_result": result.dict() if result else None,
                 "is_custom_sql": True,
             })
+            
+        # Add to global query history
+        history_item = {
+            "id": str(uuid.uuid4()),
+            "query": "User modified and executed custom SQL query",
+            "sql": request.sql,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "conversation_id": request.conversation_id
+        }
+        query_history.append(history_item)
         
         return result
         
@@ -919,3 +989,41 @@ async def get_database_status() -> Dict[str, Any]:
             "connected": False,
             "message": f"Database connection was lost: {str(e)}"
         } 
+
+
+@app.get(f"{settings.API_PREFIX}/history", response_model=List[Dict])
+async def get_history() -> List[Dict]:
+    """
+    Get all query history.
+    
+    Returns:
+        List[Dict]: All query history across conversations
+    """
+    return query_history
+
+
+@app.delete(f"{settings.API_PREFIX}/history/{{history_id}}")
+async def delete_history_item(history_id: str):
+    """
+    Delete a history item.
+    
+    Args:
+        history_id: History item ID to delete
+        
+    Returns:
+        Dict: Success message
+    """
+    global query_history
+    
+    # Find item with matching ID
+    for idx, item in enumerate(query_history):
+        if item.get("id") == history_id:
+            # Remove the item
+            deleted_item = query_history.pop(idx)
+            return {"success": True, "message": "History item deleted", "id": history_id}
+    
+    # If we get here, item wasn't found
+    raise HTTPException(
+        status_code=404,
+        detail=f"History item with ID {history_id} not found"
+    ) 

@@ -24,7 +24,7 @@ A production-level agentic system for converting natural language to SQL using L
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/Agentic-Text2SQL.git
+git clone https://github.com/akshay-sisodia/Agentic-Text2SQL.git
 cd Agentic-Text2SQL
 ```
 

@@ -25,10 +25,11 @@ class QueryResult(BaseModel):
     rows: Optional[List[Dict[str, Any]]] = Field(None, description="Query result rows")
     row_count: Optional[int] = Field(None, description="Number of rows returned")
     column_names: Optional[List[str]] = Field(None, description="Column names in result")
-    columns: Optional[List[str]] = Field(None, description="Column names (frontend compatibility)")
+    columns: Optional[List[Dict[str, Any]]] = Field(None, description="Column information including name, type, and display size")
     execution_time: Optional[float] = Field(None, description="Time taken to execute in seconds")
     error_message: Optional[str] = Field(None, description="Error message if execution failed")
     warnings: List[str] = Field(default_factory=list, description="Warnings during execution")
+    has_more_rows: Optional[bool] = Field(None, description="Whether there are more rows than returned")
 
 
 class ExplanationType(str, Enum):

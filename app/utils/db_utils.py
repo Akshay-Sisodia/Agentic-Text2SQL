@@ -42,13 +42,13 @@ def execute_query(sql_query: str, params: Optional[Dict[str, Any]] = None, engin
             query = text(sql_query)
             execution_result = connection.execute(query, params or {})
             
-            # Get column information
-            result.column_names = execution_result.keys()
+            # Get column information - convert RMKeyView to a list of strings
+            result.column_names = list(map(str, execution_result.keys()))
             
             # Create descriptive column information
             result.columns = [
                 {
-                    "name": col_name,
+                    "name": str(col_name),
                     "type": str(execution_result.cursor.description[i][1]) if execution_result.cursor.description else "unknown",
                     "display_size": execution_result.cursor.description[i][2] if execution_result.cursor.description else None
                 }
@@ -59,8 +59,14 @@ def execute_query(sql_query: str, params: Optional[Dict[str, Any]] = None, engin
             MAX_ROWS = 1000  # Limit to prevent memory issues
             result.rows = []
             
+            # Convert SQLAlchemy row objects to dictionaries
+            column_names = result.column_names
             for row in execution_result.fetchmany(MAX_ROWS):
-                result.rows.append(list(row))
+                # Convert each row to a dictionary with column names as keys
+                row_dict = {}
+                for i, col_name in enumerate(column_names):
+                    row_dict[col_name] = row[i]
+                result.rows.append(row_dict)
                 
             # Check if there are more rows
             result.has_more_rows = len(result.rows) == MAX_ROWS
@@ -76,13 +82,13 @@ def execute_query(sql_query: str, params: Optional[Dict[str, Any]] = None, engin
     except SQLAlchemyError as e:
         # Handle database errors
         result.status = QueryStatus.ERROR
-        result.error = str(e)
+        result.error_message = str(e)
         logger.error(f"Database error executing query: {str(e)}")
         
     except Exception as e:
         # Handle other errors
         result.status = QueryStatus.ERROR
-        result.error = str(e)
+        result.error_message = str(e)
         logger.error(f"Error executing query: {str(e)}")
         
     finally:
@@ -190,6 +196,23 @@ def get_schema_info(engine=None) -> DatabaseInfo:
                     columns_query = f"PRAGMA table_info({table_name})"
                     columns_result = connection.execute(text(columns_query))
                     
+                    # Get unique constraints from SQLite index list
+                    unique_columns = set()
+                    try:
+                        index_query = f"PRAGMA index_list({table_name})"
+                        index_result = connection.execute(text(index_query))
+                        
+                        for index_row in index_result:
+                            if index_row[2]:  # is_unique flag
+                                index_name = index_row[1]
+                                index_info_query = f"PRAGMA index_info({index_name})"
+                                index_info_result = connection.execute(text(index_info_query))
+                                
+                                for index_info_row in index_info_result:
+                                    unique_columns.add(index_info_row[2])  # column name
+                    except Exception as e:
+                        logger.warning(f"Error getting unique constraints for {table_name}: {str(e)}")
+                    
                     for column_row in columns_result:
                         # SQLite PRAGMA returns: cid, name, type, notnull, dflt_value, pk
                         column_info = ColumnInfo(
@@ -197,6 +220,7 @@ def get_schema_info(engine=None) -> DatabaseInfo:
                             data_type=column_row[2],  # type
                             nullable=not column_row[3],  # NOT notnull
                             primary_key=bool(column_row[5]),  # pk
+                            unique=column_row[1] in unique_columns,  # set unique flag
                             description=f"Column {column_row[1]} of type {column_row[2]}"
                         )
                         table_info.columns.append(column_info)
@@ -283,13 +307,39 @@ def get_schema_info(engine=None) -> DatabaseInfo:
                 for column in table.columns:
                     if column.foreign_key:
                         ref_table, ref_column = column.foreign_key.split(".")
-                        relationship = Relationship(
-                            source_table=table.name,
-                            source_column=column.name,
-                            target_table=ref_table,
-                            target_column=ref_column
-                        )
-                        relationships.append(relationship)
+                        
+                        # Determine relationship type based on database constraints and cardinality
+                        relationship_type = None
+                        
+                        # Find the target table
+                        target_table = next((t for t in db_info.tables if t.name == ref_table), None)
+                        
+                        if target_table:
+                            # Check if the referenced column is a primary key or unique in target table
+                            target_column_obj = next((c for c in target_table.columns if c.name == ref_column), None)
+                            source_is_unique = column.primary_key or column.unique
+                            target_is_unique = target_column_obj and (target_column_obj.primary_key or target_column_obj.unique)
+                            
+                            # Determine relationship type based on uniqueness constraints
+                            if source_is_unique and target_is_unique:
+                                relationship_type = "ONE_TO_ONE"
+                            elif source_is_unique and not target_is_unique:
+                                relationship_type = "ONE_TO_MANY"
+                            elif not source_is_unique and target_is_unique:
+                                relationship_type = "MANY_TO_ONE"
+                            else:
+                                relationship_type = "MANY_TO_MANY"
+                        
+                        # Only add relationship if we determined a type
+                        if relationship_type:
+                            relationship = Relationship(
+                                source_table=table.name,
+                                source_column=column.name,
+                                target_table=ref_table,
+                                target_column=ref_column,
+                                relationship_type=relationship_type
+                            )
+                            relationships.append(relationship)
             
             db_info.relationships = relationships
             
@@ -370,7 +420,7 @@ def get_table_info(connection, table_name: str, dialect: str, db_name: str = Non
                     name=row[0],
                     data_type=row[1],
                     nullable=row[2].upper() == 'YES',
-                    primary_key=bool(row[4]),
+                    primary_key=bool(row[3]),
                 )
                 table_info.columns.append(col_info)
                 
@@ -641,15 +691,40 @@ async def get_sqlite_schema(db_path: str) -> DatabaseInfo:
                 # Foreign key format is "table.column"
                 parts = column.foreign_key.split('.')
                 if len(parts) == 2:
-                    target_table, target_column = parts
-                    relationship = Relationship(
-                        source_table=table.name,
-                        source_column=column.name,
-                        target_table=target_table,
-                        target_column=target_column,
-                        relationship_type="MANY_TO_ONE"  # Default for most foreign keys
-                    )
-                    relationships.append(relationship)
+                    target_table_name, target_column_name = parts
+                    
+                    # Determine relationship type based on database constraints and cardinality
+                    relationship_type = None
+                    
+                    # Find the target table
+                    target_table = next((t for t in db_info.tables if t.name == target_table_name), None)
+                    
+                    if target_table:
+                        # Check if the referenced column is a primary key or unique in target table
+                        target_column_obj = next((c for c in target_table.columns if c.name == target_column_name), None)
+                        source_is_unique = column.primary_key or column.unique
+                        target_is_unique = target_column_obj and (target_column_obj.primary_key or target_column_obj.unique)
+                        
+                        # Determine relationship type based on uniqueness constraints
+                        if source_is_unique and target_is_unique:
+                            relationship_type = "ONE_TO_ONE"
+                        elif source_is_unique and not target_is_unique:
+                            relationship_type = "ONE_TO_MANY"
+                        elif not source_is_unique and target_is_unique:
+                            relationship_type = "MANY_TO_ONE"
+                        else:
+                            relationship_type = "MANY_TO_MANY"
+                    
+                    # Only add relationship if we determined a type
+                    if relationship_type:
+                        relationship = Relationship(
+                            source_table=table.name,
+                            source_column=column.name,
+                            target_table=target_table_name,
+                            target_column=target_column_name,
+                            relationship_type=relationship_type
+                        )
+                        relationships.append(relationship)
     
     # Add relationships to database info
     db_info.relationships = relationships

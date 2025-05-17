@@ -1,0 +1,1 @@
+import requests; response = requests.post("http://localhost:8000/api/v1/execute-custom-sql", json={"sql": "INSERT INTO customers VALUES (1, \"John\", \"john@example.com\")"}) ; print(response.status_code, response.text)

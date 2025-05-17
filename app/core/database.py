@@ -41,6 +41,15 @@ def get_database_url(
     Returns:
         str: Database connection URL
     """
+    # Check if sample database exists - if so, use it by default 
+    # unless explicit parameters are provided
+    if os.path.exists(SAMPLE_DB_PATH) and not any([
+        (db_type and db_type != "sqlite"),
+        (db_name and db_name != "text2sql" and db_name != "sample_huge.db"),
+        db_user, db_password, db_host, db_port
+    ]):
+        return f"sqlite:///{SAMPLE_DB_PATH}"
+    
     # Use provided parameters or fall back to settings
     db_type = db_type or settings.DB_TYPE
     db_name = db_name or settings.DB_NAME
@@ -54,8 +63,8 @@ def get_database_url(
         return settings.DATABASE_URL
     
     if db_type == "sqlite":
-        # Use the sample database by default if db_name is the default value
-        if db_name == "text2sql" and os.path.exists(SAMPLE_DB_PATH):
+        # Always use the sample database by default if available
+        if os.path.exists(SAMPLE_DB_PATH):
             return f"sqlite:///{SAMPLE_DB_PATH}"
         db_path = os.path.join(os.getcwd(), f"{db_name}")
         return f"sqlite:///{db_path}"

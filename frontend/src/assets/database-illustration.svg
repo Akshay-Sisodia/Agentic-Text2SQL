@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!-- Database icons with glow effect -->
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <linearGradient id="dbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5b21b6" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="connectorGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Database stack -->
+  <g transform="translate(400, 300)">
+    <!-- Lines connecting databases -->
+    <g stroke="url(#connectorGradient)" stroke-width="4" stroke-linecap="round" stroke-dasharray="10,5" opacity="0.7">
+      <line x1="-180" y1="-50" x2="180" y2="-150" />
+      <line x1="-180" y1="0" x2="180" y2="-100" />
+      <line x1="-180" y1="50" x2="180" y2="-50" />
+      <line x1="-180" y1="100" x2="180" y2="0" />
+    </g>
+
+    <!-- Primary database set -->
+    <g transform="translate(-200, 0)">
+      <g filter="url(#glow)">
+        <!-- Database cylinders -->
+        <ellipse cx="0" cy="-100" rx="70" ry="25" fill="url(#dbGradient)" opacity="0.9" />
+        <rect x="-70" y="-100" width="140" height="80" fill="url(#dbGradient)" opacity="0.9" />
+        <ellipse cx="0" cy="-20" rx="70" ry="25" fill="url(#dbGradient)" opacity="0.9" />
+
+        <ellipse cx="0" cy="0" rx="70" ry="25" fill="url(#dbGradient)" opacity="0.9" />
+        <rect x="-70" y="0" width="140" height="80" fill="url(#dbGradient)" opacity="0.9" />
+        <ellipse cx="0" cy="80" rx="70" ry="25" fill="url(#dbGradient)" opacity="0.9" />
+      </g>
+
+      <!-- Database text labels -->
+      <g fill="white" font-family="Arial, sans-serif" text-anchor="middle">
+        <text x="0" y="-95" font-size="16" font-weight="bold">PostgreSQL</text>
+        <text x="0" y="5" font-size="16" font-weight="bold">MySQL</text>
+      </g>
+    </g>
+
+    <!-- SQL query and result visual -->
+    <g transform="translate(200, -100)">
+      <!-- Code block background -->
+      <rect x="-180" y="-60" width="360" height="220" rx="10" ry="10" fill="#1a1a2e" opacity="0.9" stroke="#8b5cf6" stroke-width="2" />
+
+      <!-- SQL code text -->
+      <g fill="white" font-family="monospace" font-size="14" text-anchor="start">
+        <text x="-160" y="-30" fill="#f472b6">SELECT</text>
+        <text x="-100" y="-30" fill="#d1d5db">customers.name,</text>
+        <text x="-160" y="-5" fill="#d1d5db">orders.order_id,</text>
+        <text x="-160" y="20" fill="#f472b6">FROM</text>
+        <text x="-110" y="20" fill="#60a5fa">customers</text>
+        <text x="-160" y="45" fill="#f472b6">JOIN</text>
+        <text x="-120" y="45" fill="#60a5fa">orders</text>
+        <text x="-60" y="45" fill="#f472b6">ON</text>
+        <text x="-30" y="45" fill="#d1d5db">customers.id = orders.customer_id</text>
+        <text x="-160" y="70" fill="#f472b6">WHERE</text>
+        <text x="-100" y="70" fill="#d1d5db">orders.amount > 100</text>
+        <text x="-160" y="95" fill="#f472b6">ORDER BY</text>
+        <text x="-80" y="95" fill="#d1d5db">orders.date DESC</text>
+        <text x="-160" y="120" fill="#f472b6">LIMIT</text>
+        <text x="-110" y="120" fill="#d1d5db">10;</text>
+      </g>
+    </g>
+
+    <!-- Natural language text -->
+    <g transform="translate(0, -200)">
+      <rect x="-250" y="-30" width="500" height="40" rx="20" ry="20" fill="#1a1a2e" opacity="0.8" stroke="url(#textGradient)" stroke-width="2" />
+      <text x="0" y="-5" fill="white" font-family="Arial, sans-serif" font-size="16" text-anchor="middle">
+        "Show me top 10 customers with orders over $100"
+      </text>
+    </g>
+
+    <!-- Arrow pointing from NL to SQL -->
+    <g transform="translate(0, -160)">
+      <path d="M0,0 L0,30" stroke="url(#textGradient)" stroke-width="3" stroke-linecap="round" />
+      <path d="M-10,20 L0,30 L10,20" stroke="url(#textGradient)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+
+    <!-- Decorative circuit lines -->
+    <g stroke="url(#connectorGradient)" stroke-width="1" opacity="0.4">
+      <path d="M-300,150 L-250,150 L-250,100 L-150,100 L-150,50" fill="none" />
+      <path d="M300,150 L250,150 L250,100 L150,100 L150,50" fill="none" />
+      <path d="M-300,-150 L-250,-150 L-250,-100 L-150,-100 L-150,-50" fill="none" />
+      <path d="M300,-150 L250,-150 L250,-100 L150,-100 L150,-50" fill="none" />
+    </g>
+
+    <!-- Small decorative dots -->
+    <g fill="#8b5cf6">
+      <circle cx="-250" cy="150" r="3" />
+      <circle cx="-150" cy="100" r="3" />
+      <circle cx="250" cy="150" r="3" />
+      <circle cx="150" cy="100" r="3" />
+      <circle cx="-250" cy="-150" r="3" />
+      <circle cx="-150" cy="-100" r="3" />
+      <circle cx="250" cy="-150" r="3" />
+      <circle cx="150" cy="-100" r="3" />
+    </g>
+  </g>
+</svg> 
