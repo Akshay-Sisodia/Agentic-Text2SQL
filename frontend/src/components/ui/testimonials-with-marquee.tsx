@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils"
 import { TestimonialCard } from "./testimonial-card"
 import type { TestimonialAuthor } from "./testimonial-card"
 import { motion } from "framer-motion"
