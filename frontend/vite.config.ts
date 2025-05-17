@@ -10,9 +10,29 @@ const __dirname = path.dirname(__filename)
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { 
+        find: '@', 
+        replacement: path.resolve(__dirname, './src') 
+      },
+      // Add explicit resolution for lib paths
+      { 
+        find: '@/lib/settings-context', 
+        replacement: path.resolve(__dirname, './src/lib/settings-context.tsx') 
+      },
+      { 
+        find: '@/lib/utils', 
+        replacement: path.resolve(__dirname, './src/lib/utils.ts') 
+      },
+      { 
+        find: '@/lib/api', 
+        replacement: path.resolve(__dirname, './src/lib/api.ts') 
+      },
+      { 
+        find: '@/lib/hooks', 
+        replacement: path.resolve(__dirname, './src/lib/hooks.ts') 
+      }
+    ],
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
   server: {

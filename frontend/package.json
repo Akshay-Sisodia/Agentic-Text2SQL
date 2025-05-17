@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:no-check": "vite build --emptyOutDir",
+    "build:no-check": "tsc --jsx preserve --emitDeclarationOnly false --outDir dist/types && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
