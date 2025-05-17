@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install && npm run build",
+  "buildCommand": "pnpm install && pnpm build",
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://agentic-text2sql-api.onrender.com/api/$1" }
