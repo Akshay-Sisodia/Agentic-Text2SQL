@@ -15,7 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   processQuery, 
-  getDatabaseSchema,
+  getDatabaseSchema, 
   getConversationHistory
 } from "@/lib/api";
 import type { 

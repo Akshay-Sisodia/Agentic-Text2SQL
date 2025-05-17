@@ -4,6 +4,5 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "buildCommand": "pnpm run build:no-check",
-  "outputDirectory": "dist",
-  "framework": null
+  "outputDirectory": "dist"
 } 

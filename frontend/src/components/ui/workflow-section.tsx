@@ -8,16 +8,6 @@ export default function WorkflowSection() {
   const containerRef = useRef<HTMLElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   
-  // Get path length on component mount for accurate animations
-  useEffect(() => {
-    if (pathRef.current) {
-      // We still need to calculate the path length for animation
-      const pathTotalLength = pathRef.current.getTotalLength();
-      pathRef.current.style.strokeDasharray = `${pathTotalLength} ${pathTotalLength}`;
-      pathRef.current.style.strokeDashoffset = `${pathTotalLength}`;
-    }
-  }, []);
-  
   // Scroll-based animation for the path
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -255,8 +245,15 @@ ORDER BY total_revenue DESC;`,
                 stroke="url(#lineGradient)"
                 strokeWidth="8"
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 filter="url(#enhanced-glow)"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
                 style={{ pathLength: pathDrawProgress }}
+                transition={{ 
+                  pathLength: { duration: 0.01 }, 
+                  opacity: { duration: 0.5 } 
+                }}
               />
             </svg>
           </div>
