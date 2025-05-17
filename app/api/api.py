@@ -117,9 +117,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # Local development
-        "http://localhost:5173",  # Vite dev server
-        "https://agentic-text2sql.vercel.app",  # Your Vercel production domain
-        "https://*.vercel.app",  # Allow all Vercel preview deployments
+        "http://localhost:5173",  # Vite dev ser,  # Your actual Vercel domain with hyphens during development (remove in production if security is a concern)
+        "https://text2sql.akshaysisodia.studio"
     ],  
     allow_credentials=True,
     allow_methods=["*"],
