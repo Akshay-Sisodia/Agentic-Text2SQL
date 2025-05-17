@@ -11,7 +11,7 @@ import { DashboardPage } from './components/DashboardPage'
 import { AboutPage } from './components/AboutPage'
 import { SettingsPage } from './components/SettingsPage'
 import { ErrorPage } from './components/ErrorPage'
-import { SettingsProvider } from '@/lib/settings-context'
+import { SettingsProvider } from './lib/settings-context.tsx'
 
 function HomePage() {
   const [, setActiveSection] = useState('home')
