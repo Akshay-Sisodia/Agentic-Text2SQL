@@ -1,0 +1,104 @@
+/* General styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+/* CodeMirror customization */
+.CodeMirror {
+    height: auto;
+    min-height: 100px;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Table styling */
+.table th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 1;
+}
+
+/* Card customization */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: none;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* SQL warning styling */
+.sql-warning {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background-color: #fff3cd;
+    border-radius: 0.25rem;
+    color: #856404;
+}
+
+/* Schema modal styling */
+.schema-table {
+    margin-bottom: 2rem;
+}
+
+.schema-table-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 0.5rem;
+}
+
+.schema-table-description {
+    font-style: italic;
+    margin-bottom: 0.75rem;
+}
+
+.schema-column-pk {
+    font-weight: bold;
+    color: #198754;
+}
+
+.schema-column-fk {
+    font-weight: bold;
+    color: #6f42c1;
+}
+
+/* Loading spinner */
+.spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+/* Explanation styles */
+#explanation {
+    line-height: 1.6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-header {
+        padding: 0.75rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+} 
