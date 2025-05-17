@@ -1,0 +1,7 @@
+# Ignore everything in the root except frontend
+/*
+!/frontend
+!/vercel.json
+
+# Additionally ignore node_modules in frontend
+/frontend/node_modules 

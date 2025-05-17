@@ -1,8 +1,9 @@
 {
-  "buildCommand": "cd frontend && pnpm install && pnpm build",
-  "outputDirectory": "frontend/dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://agentic-text2sql-api.onrender.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://agentic-text2sql-api.onrender.com/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "framework": "vite"
+  "buildCommand": "cd frontend && pnpm install && pnpm run build:no-check",
+  "outputDirectory": "frontend/dist",
+  "framework": null
 } 
