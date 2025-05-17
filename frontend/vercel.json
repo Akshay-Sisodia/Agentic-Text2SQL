@@ -3,7 +3,7 @@
     { "source": "/api/(.*)", "destination": "https://agentic-text2sql-api.onrender.com/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "buildCommand": "cd frontend && pnpm install && pnpm run build:no-check",
-  "outputDirectory": "frontend/dist",
+  "buildCommand": "pnpm run build:no-check",
+  "outputDirectory": "dist",
   "framework": null
 } 

@@ -8,6 +8,10 @@
     "email": "akshaysisodia.studies@gmail.com",
     "url": "https://github.com/akshay-sisodia"
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
