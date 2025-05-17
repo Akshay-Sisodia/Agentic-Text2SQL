@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:no-check": "tsc --noEmit false --emitDeclarationOnly false --jsx react-jsx && vite build",
+    "build:no-check": "vite build --config vite.config.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },

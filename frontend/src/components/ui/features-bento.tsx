@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
 // Import icons - we'll use literals for simplicity here
 // You can replace these with actual icon imports from your preferred icon library
