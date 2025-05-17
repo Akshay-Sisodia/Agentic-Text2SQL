@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:no-check": "vite build --config vite.config.ts",
+    "build:no-check": "vite build --emptyOutDir",
     "lint": "eslint .",
     "preview": "vite preview"
   },
