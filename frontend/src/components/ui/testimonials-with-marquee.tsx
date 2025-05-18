@@ -3,6 +3,7 @@ import { TestimonialCard } from "./testimonial-card"
 import type { TestimonialAuthor } from "./testimonial-card"
 import { motion } from "framer-motion"
 import { useRef, useEffect, useState } from "react"
+import BackgroundRippleEffect from "./background-ripple-effect"
 
 interface TestimonialsSectionProps {
   title: string
@@ -29,17 +30,22 @@ export function TestimonialsSection({
   
   return (
     <section className={cn(
-      "relative bg-black overflow-hidden",
+      "relative overflow-hidden",
       "pt-6 pb-12 md:pt-8 md:pb-20",
       className
     )}>
+      {/* Integrated background effect component */}
+      <div className="absolute inset-0 z-0">
+        <BackgroundRippleEffect className="opacity-70" />
+      </div>
+      
       {/* Decorative elements */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none z-10">
         <div className="absolute top-20 left-[5%] w-48 md:w-72 h-48 md:h-72 bg-purple-500/10 rounded-full filter blur-3xl" />
         <div className="absolute bottom-40 right-[10%] w-48 md:w-72 h-48 md:h-72 bg-blue-500/10 rounded-full filter blur-3xl" />
       </div>
       
-      <div className="container mx-auto max-w-7xl flex flex-col items-center gap-6 md:gap-12 px-4">
+      <div className="container mx-auto max-w-7xl flex flex-col items-center gap-6 md:gap-12 px-4 relative z-20">
         <motion.div 
           className="text-center mb-4 md:mb-8"
           initial={{ opacity: 0, y: 20 }}
