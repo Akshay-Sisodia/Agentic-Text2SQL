@@ -1,6 +1,7 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface FuturisticHeroProps {
   subtitle: string;
@@ -14,6 +15,7 @@ export default function FuturisticHero({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const prefersReducedMotion = useReducedMotion();
   
   // Words to cycle through
   const cyclingWords = ["teams", "businesses", "employees", "analysts", "stakeholders"];
@@ -43,7 +45,7 @@ export default function FuturisticHero({
       window.removeEventListener('scroll', handleScroll);
       clearInterval(wordCycleInterval);
     };
-  }, []);
+  }, [cyclingWords.length]);
   
   // Parallax calculation
   const getParallaxStyle = (depth: number) => {
@@ -88,18 +90,22 @@ export default function FuturisticHero({
       <Grid />
       
       <div className="absolute inset-0 overflow-hidden">
-        {/* Circles */}
-        <motion.div 
+        <motion.div
           className="absolute top-[15%] -right-[10%] w-[30vw] h-[30vw] rounded-full bg-blue-500/10 blur-[50px]"
-          style={getParallaxStyle(0.2)}
-          animate={{
-            opacity: [0.3, 0.6, 0.3],
+          style={{
+            ...getParallaxStyle(0.2),
+            willChange: 'transform, opacity'
           }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
+          animate={
+            prefersReducedMotion
+              ? { opacity: 0.3 }
+              : { opacity: [0.3, 0.6, 0.3] }
+          }
+          transition={
+            prefersReducedMotion
+              ? {}
+              : { duration: 8, repeat: Infinity, ease: 'easeInOut' }
+          }
         />
         <motion.div 
           className="absolute bottom-[10%] -left-[5%] w-[25vw] h-[25vw] rounded-full bg-indigo-500/10 blur-[40px]"
@@ -146,15 +152,15 @@ export default function FuturisticHero({
       </div>
       
       {/* Content */}
-      <div className="container relative z-10 flex flex-col items-center justify-center text-center pt-32 pb-16 md:pt-24 md:pb-20">
+      <div className="container relative z-10 flex flex-col items-center justify-center text-center pt-20 pb-12 px-4 md:pt-32 md:pb-16 md:px-6">
         <div className="max-w-4xl">
           {/* Animated title with cycling word */}
-          <div className="flex flex-wrap justify-center gap-x-3 mb-2">
+          <div className="flex flex-wrap justify-center gap-x-2 md:gap-x-3 mb-1 md:mb-2">
             {/* First part of the title */}
             {firstPartWords.map((word, i) => (
               <motion.span
                 key={`first-${i}`}
-                className="text-4xl md:text-5xl lg:text-6xl font-bold text-white inline-block"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white inline-block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ 
@@ -169,11 +175,11 @@ export default function FuturisticHero({
           </div>
           
           {/* The cycling word with animation */}
-          <div className="flex justify-center mb-2 h-16">
+          <div className="flex justify-center mb-1 md:mb-2 h-10 sm:h-12 md:h-16">
             <AnimatePresence mode="wait">
               <motion.span
                 key={currentWordIndex}
-                className="text-4xl md:text-5xl lg:text-6xl font-bold relative"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold relative"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -199,9 +205,8 @@ export default function FuturisticHero({
                 </motion.span>
                 {/* Glow effect */}
                 <motion.span
-                  className="absolute inset-0 blur-md opacity-40 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent"
+                  className="absolute inset-0 blur-md opacity-50 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent"
                   animate={{
-                    opacity: [0.4, 0.7, 0.4],
                     backgroundPosition: ['0% center', '100% center', '0% center'],
                   }}
                   transition={{
@@ -221,16 +226,16 @@ export default function FuturisticHero({
           </div>
           
           {/* Last part of the title */}
-          <div className="flex flex-wrap justify-center gap-x-3 mb-6">
+          <div className="flex flex-wrap justify-center gap-x-2 md:gap-x-3 mb-4 md:mb-6">
             {lastPartWords.map((word, i) => (
               <motion.span
                 key={`last-${i}`}
-                className="text-4xl md:text-5xl lg:text-6xl font-bold text-white inline-block"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white inline-block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ 
                   duration: 0.6, 
-                  delay: 0.1 * (i + firstPartWords.length + 1),
+                  delay: 0.1 * i + firstPartWords.length * 0.1 + 0.3,
                   ease: [0.21, 0.45, 0.15, 1.0]
                 }}
               >
@@ -240,26 +245,37 @@ export default function FuturisticHero({
           </div>
           
           {/* Subtitle */}
-          <motion.p 
-            className="text-lg md:text-xl text-white/70 mb-8 max-w-2xl mx-auto"
+          <motion.p
+            className="text-md sm:text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8 md:mb-12"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
+            transition={{ 
+              duration: 0.6, 
+              delay: 0.8,
+              ease: [0.21, 0.45, 0.15, 1.0]
+            }}
           >
             {subtitle}
           </motion.p>
           
-          {/* Buttons */}
+          {/* Buttons or CTAs */}
           <motion.div
-            className="flex flex-col sm:flex-row gap-4 justify-center"
+            className="flex flex-wrap justify-center gap-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
+            transition={{ 
+              duration: 0.6, 
+              delay: 1,
+              ease: [0.21, 0.45, 0.15, 1.0]
+            }}
           >
             {children}
           </motion.div>
         </div>
       </div>
+      
+      {/* Decorative bottom pattern */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 md:h-32 bg-gradient-to-t from-black to-transparent z-5" />
     </section>
   );
 } 

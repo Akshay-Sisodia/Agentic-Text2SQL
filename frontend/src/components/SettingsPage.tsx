@@ -21,7 +21,7 @@ export function SettingsPage() {
     fetchAgentInfo();
   }, []);
 
-  const handleSettingChange = (setting: keyof UserSettings, value: any) => {
+  const handleSettingChange = (setting: keyof UserSettings, value: UserSettings[typeof setting]) => {
     updateSettings({ [setting]: value });
     
     // Clear any previous save status message
@@ -36,6 +36,10 @@ export function SettingsPage() {
       setAgentInfo(info);
     } catch (error) {
       console.error('Error fetching agent info:', error);
+     setAgentInfo(prev => ({
+       ...prev,
+       message: 'Unable to retrieve agent status. Please try again later.'
+     }));
     }
   };
   
@@ -47,10 +51,17 @@ export function SettingsPage() {
       // Show success message
       setSaveStatus('Settings saved successfully!');
       
-      // Clear message after 3 seconds
-      setTimeout(() => {
-        setSaveStatus(null);
-      }, 3000);
+// Clear message after 3 seconds
+ const timerId = setTimeout(() => {
+   setSaveStatus(null);
+ }, 3000);
+ 
+ // This should be outside this function, in a useEffect
+ // useEffect(() => {
+ //   return () => {
+ //     if (timerId) clearTimeout(timerId);
+ //   };
+ // }, [timerId]);
     } catch (error) {
       console.error('Error saving settings:', error);
       setSaveStatus('Error saving settings');
@@ -88,7 +99,7 @@ export function SettingsPage() {
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-gray-300 font-medium">Explanation Type</label>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="explanation-type-label">
                     {['SIMPLIFIED', 'TECHNICAL', 'EDUCATIONAL', 'BRIEF'].map((type) => (
                       <button
                         key={type}
@@ -98,6 +109,8 @@ export function SettingsPage() {
                             ? "bg-indigo-500/20 border-indigo-500/30 text-indigo-300"
                             : "border-white/10 hover:bg-white/[0.05] text-gray-300"
                         )}
+                        role="radio"
+                        aria-checked={settings.preferredExplanationType === type}
                         onClick={() => handleSettingChange('preferredExplanationType', type as any)}
                       >
                         {settings.preferredExplanationType === type && (

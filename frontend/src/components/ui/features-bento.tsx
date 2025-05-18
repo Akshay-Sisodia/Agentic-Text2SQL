@@ -112,36 +112,36 @@ const features = [
 
 export default function FeaturesBento() {
   return (
-    <section className="relative py-16 pb-8 px-6 sm:px-8 md:px-10 lg:px-12 overflow-hidden">
+    <section className="relative py-8 md:py-16 pb-4 md:pb-8 px-4 sm:px-6 md:px-8 lg:px-12 overflow-hidden">
       {/* Decorative elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-40 right-[10%] w-72 h-72 bg-indigo-500/10 rounded-full filter blur-3xl" />
-        <div className="absolute bottom-20 left-[5%] w-72 h-72 bg-blue-500/10 rounded-full filter blur-3xl" />
+        <div className="absolute -top-40 right-[10%] w-48 md:w-72 h-48 md:h-72 bg-indigo-500/10 rounded-full filter blur-3xl" />
+        <div className="absolute bottom-20 left-[5%] w-48 md:w-72 h-48 md:h-72 bg-blue-500/10 rounded-full filter blur-3xl" />
       </div>
       
       <div className="container mx-auto max-w-7xl">
         <motion.div 
-          className="text-center mb-12"
+          className="text-center mb-8 md:mb-12"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="font-heading text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="font-heading text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 bg-clip-text text-transparent">
             Transform Data Access
           </h2>
-          <p className="mt-4 text-lg text-white/70 max-w-2xl mx-auto">
+          <p className="mt-3 md:mt-4 text-base md:text-lg text-white/70 max-w-2xl mx-auto">
             Ask questions in plain English and instantly get the SQL you need.
             No database expertise required.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
           {features.map((feature) => (
             <motion.div
               key={feature.title}
               className={cn(
-                "group relative p-8 rounded-2xl border backdrop-blur-sm overflow-hidden shadow-lg",
+                "group relative p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl border backdrop-blur-sm overflow-hidden shadow-lg",
                 "hover:border-white/20 transition-all duration-300",
                 feature.borderAccent,
                 feature.bgAccent
@@ -150,22 +150,25 @@ export default function FeaturesBento() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: feature.delay }}
-              whileHover={{ y: -8, transition: { duration: 0.2 } }}
+              whileHover={{ 
+                y: -8, 
+                transition: { duration: 0.2 } 
+              }}
             >
               {/* Feature content */}
               <div className="relative z-10">
-                <div className="flex flex-col items-start gap-4 mb-5">
+                <div className="flex flex-col items-start gap-3 md:gap-4 mb-3 md:mb-5">
                   <div className={cn(
-                    "flex-shrink-0 rounded-xl p-3",
+                    "flex-shrink-0 rounded-lg md:rounded-xl p-2 md:p-3",
                     "bg-white/10 text-white"
                   )}>
                     <feature.icon />
                   </div>
-                  <h3 className="font-heading text-2xl font-semibold text-white">
+                  <h3 className="font-heading text-xl md:text-2xl font-semibold text-white">
                     {feature.title}
                   </h3>
                 </div>
-                <p className="text-white/70 leading-relaxed text-base">
+                <p className="text-white/70 leading-relaxed text-sm md:text-base">
                   {feature.description}
                 </p>
               </div>
@@ -178,7 +181,7 @@ export default function FeaturesBento() {
               )} />
               
               {/* Decorative elements */}
-              <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-white/5 rounded-full filter blur-xl opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
+              <div className="absolute -right-4 -bottom-4 w-24 md:w-32 h-24 md:h-32 bg-white/5 rounded-full filter blur-xl opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
               
               {/* Shine effect on hover */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.05] to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />

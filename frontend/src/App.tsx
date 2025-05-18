@@ -1,20 +1,29 @@
-import { useState } from 'react'
+// React and third-party imports
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { SettingsProvider } from '@/lib/settings-context'
+
+// Page components
+import { DashboardPage } from './components/DashboardPage'
+import { AboutPage } from './components/AboutPage'
+import { SettingsPage } from './components/SettingsPage'
+import { ErrorPage } from './components/ErrorPage'
+import { LoginPage } from './components/LoginPage'
+
+// UI components
 import BackgroundRippleEffect from './components/ui/background-ripple-effect'
 import FuturisticHero from './components/ui/futuristic-hero'
 import FeaturesBento from './components/ui/features-bento'
 import { TestimonialsSection } from './components/ui/testimonials-with-marquee'
 import { GradientButton } from './components/ui/gradient-button'
 import WorkflowSection from './components/ui/workflow-section'
-import { DashboardPage } from './components/DashboardPage'
-import { AboutPage } from './components/AboutPage'
-import { SettingsPage } from './components/SettingsPage'
-import { ErrorPage } from './components/ErrorPage'
-import { SettingsProvider } from '@/lib/settings-context'
+
+// Testimonials data
+import { testimonials } from './data/testimonials'
 
 function HomePage() {
-  const [, setActiveSection] = useState('home')
+  const [activeSection, setActiveSection] = useState('home');
 
   // Scroll to section function
   const scrollToSection = (sectionId: string) => {
@@ -24,42 +33,28 @@ function HomePage() {
     }
     setActiveSection(sectionId);
   };
-
-  // Sample testimonials data
-  const testimonials = [
-    {
-      author: {
-        name: "Sarah Johnson",
-        handle: "Data Analyst @ TechCorp",
-        avatar: "https://randomuser.me/api/portraits/women/44.jpg"
-      },
-      text: "This tool transformed how I analyze data. Now I can query our database using plain English instead of complex SQL!"
-    },
-    {
-      author: {
-        name: "Michael Chen",
-        handle: "Product Manager",
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg"
-      },
-      text: "As a non-technical PM, I can now get data insights without bothering our engineers. Game changer!"
-    },
-    {
-      author: {
-        name: "Lisa Rodriguez",
-        handle: "Business Analyst",
-        avatar: "https://randomuser.me/api/portraits/women/65.jpg"
-      },
-      text: "The SQL explanations help me learn while using the tool. I've improved my query skills just by using this daily."
-    },
-    {
-      author: {
-        name: "David Kim",
-        handle: "Database Administrator",
-        avatar: "https://randomuser.me/api/portraits/men/11.jpg"
-      },
-      text: "Even as a DB admin, I use this to quickly prototype queries. The optimized SQL it generates is surprisingly good."
+  
+  // Update page title for SEO
+  useEffect(() => {
+    document.title = "Agentic Text2SQL | Natural Language to SQL Database Queries";
+    
+    // Update meta description
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', 'Transform natural language questions into powerful, optimized SQL queries. No technical expertise required. Simplify database access with intelligent natural language processing.');
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = 'description';
+      meta.content = 'Transform natural language questions into powerful, optimized SQL queries. No technical expertise required. Simplify database access with intelligent natural language processing.';
+      document.head.appendChild(meta);
     }
-  ]
+    
+    // Add keywords meta tag
+    const metaKeywords = document.createElement('meta');
+    metaKeywords.name = 'keywords';
+    metaKeywords.content = 'text to SQL, natural language processing, database queries, SQL generation, data analytics';
+    document.head.appendChild(metaKeywords);
+  }, []);
 
   return (
     <div className="relative w-full min-h-screen bg-black text-white overflow-x-hidden">
@@ -69,17 +64,19 @@ function HomePage() {
       <main className="flex flex-col w-full">
         {/* Hero Section with the new FuturisticHero component */}
         <FuturisticHero 
-          subtitle="Ask questions in plain English and get optimized SQL instantly. Powered by AI and PydanticAI."
+          subtitle="Transform natural language into optimized SQL queries instantly. Database insights without the technical complexity."
         >
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link to="/dashboard">
-            <GradientButton>
-              Try Demo
-            </GradientButton>
+              <GradientButton>
+                Try Demo
+              </GradientButton>
             </Link>
             <GradientButton 
               variant="variant" 
               onClick={() => scrollToSection('how-it-works')}
+              aria-label="View how it works section"
+              title="View how it works section"
             >
               How It Works
             </GradientButton>
@@ -101,10 +98,10 @@ function HomePage() {
         />
         
         {/* CTA Section */}
-        <section className="relative py-20 overflow-hidden">
+        <section className="relative py-12 md:py-20 px-4 overflow-hidden">
           <div className="container mx-auto max-w-4xl text-center z-10 relative" style={{ position: 'relative' }}>
             <motion.h2 
-              className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent mb-6"
+              className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent mb-4 md:mb-6"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
@@ -113,7 +110,7 @@ function HomePage() {
               Ready to Revolutionize Your Data Access?
             </motion.h2>
             <motion.p 
-              className="text-lg text-white/70 mb-8 max-w-2xl mx-auto"
+              className="text-base md:text-lg text-white/70 mb-6 md:mb-8 max-w-2xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
@@ -129,20 +126,20 @@ function HomePage() {
               className="flex justify-center"
             >
               <Link to="/dashboard">
-              <GradientButton size="lg">
-                Get Started Now
-              </GradientButton>
+                <GradientButton size="lg" aria-label="Get started with the application" title="Get started with the application">
+                  Get Started Now
+                </GradientButton>
               </Link>
             </motion.div>
           </div>
           
           {/* Decorative elements */}
-          <div className="absolute -bottom-48 -left-48 w-96 h-96 bg-purple-500/30 rounded-full filter blur-3xl"></div>
-          <div className="absolute -top-48 -right-48 w-96 h-96 bg-blue-500/20 rounded-full filter blur-3xl"></div>
+          <div className="absolute -bottom-48 -left-48 w-72 md:w-96 h-72 md:h-96 bg-purple-500/30 rounded-full filter blur-3xl"></div>
+          <div className="absolute -top-48 -right-48 w-72 md:w-96 h-72 md:h-96 bg-blue-500/20 rounded-full filter blur-3xl"></div>
         </section>
       </main>
     </div>
-  )
+  );
 }
 
 function App() {
@@ -154,11 +151,12 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<ErrorPage />} />
         </Routes>
       </Router>
     </SettingsProvider>
-  )
+  );
 }
 
-export default App
+export default App;

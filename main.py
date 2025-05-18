@@ -3,7 +3,6 @@
 import argparse
 import logging
 import os
-import subprocess
 import sys
 from contextlib import asynccontextmanager
 
@@ -12,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 from app.api.api import app
-from app.core.config import settings
+from app.core.settings import settings
 
 # Configure logging
 logging.basicConfig(
@@ -27,13 +26,11 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown events."""
     # Startup
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}")
-    
-    if settings.DEBUG:
-        # Build frontend in development mode
-        build_frontend()
-        
+
+    # No longer need to check DEBUG flag or build frontend here
+    # as the app's own lifespan manager will handle initialization
     yield
-    
+
     # Shutdown
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 
@@ -47,18 +44,19 @@ def custom_openapi():
     """Generate custom OpenAPI schema."""
     if app.openapi_schema:
         return app.openapi_schema
-    
+
     # Try to load OpenAPI schema from file
     openapi_path = os.path.join(os.path.dirname(__file__), "openapi.yaml")
     if os.path.exists(openapi_path):
         import yaml
+
         try:
             with open(openapi_path, "r") as f:
                 app.openapi_schema = yaml.safe_load(f)
                 return app.openapi_schema
         except Exception as e:
             logger.error(f"Failed to load OpenAPI schema from file: {str(e)}")
-    
+
     # Generate schema using FastAPI
     openapi_schema = get_openapi(
         title=settings.PROJECT_NAME,
@@ -66,12 +64,10 @@ def custom_openapi():
         description=settings.DESCRIPTION,
         routes=app.routes,
     )
-    
+
     # Customize schema
-    openapi_schema["info"]["x-logo"] = {
-        "url": "/static/logo.png"
-    }
-    
+    openapi_schema["info"]["x-logo"] = {"url": "/static/logo.png"}
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -80,52 +76,31 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-def build_frontend():
-    """Build the frontend if it exists."""
-    frontend_dir = os.path.join(os.path.dirname(__file__), "app", "frontend")
-    if os.path.exists(frontend_dir):
-        logger.info("Building frontend...")
-        try:
-            # Check if node_modules exists, if not install dependencies
-            if not os.path.exists(os.path.join(frontend_dir, "node_modules")):
-                logger.info("Installing frontend dependencies...")
-                result = subprocess.run(
-                    ["npm", "install"],
-                    cwd=frontend_dir,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-            
-            # Build the frontend
-            result = subprocess.run(
-                ["npm", "run", "build"],
-                cwd=frontend_dir,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            logger.info("Frontend built successfully")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to build frontend: {e.stderr}")
-        except Exception as e:
-            logger.error(f"Error building frontend: {str(e)}")
-
-
 def parse_arguments():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Agentic Text-to-SQL Server')
-    parser.add_argument('--host', type=str, default="0.0.0.0", 
-                        help='Host to bind the server to')
-    parser.add_argument('--port', type=int, default=int(os.environ.get("PORT", 8000)), 
-                        help='Port to bind the server to')
-    parser.add_argument('--reload', action='store_true', 
-                        help='Enable auto-reload for development')
-    parser.add_argument('--workers', type=int, default=1, 
-                        help='Number of worker processes')
-    parser.add_argument('--log-level', type=str, default=settings.LOG_LEVEL.lower(),
-                        choices=['debug', 'info', 'warning', 'error', 'critical'],
-                        help='Logging level')
+    parser = argparse.ArgumentParser(description="Agentic Text-to-SQL Server")
+    parser.add_argument(
+        "--host", type=str, default="0.0.0.0", help="Host to bind the server to"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("PORT", 8000)),
+        help="Port to bind the server to",
+    )
+    parser.add_argument(
+        "--reload", action="store_true", help="Enable auto-reload for development"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=1, help="Number of worker processes"
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default=settings.LOG_LEVEL.lower(),
+        choices=["debug", "info", "warning", "error", "critical"],
+        help="Logging level",
+    )
     return parser.parse_args()
 
 
@@ -133,16 +108,16 @@ def main():
     """Run the application."""
     try:
         logger.info("Starting Agentic Text-to-SQL application...")
-        
+
         # Parse command line arguments
         args = parse_arguments()
-        
+
         # Start the server
         uvicorn.run(
             "app.api.api:app",
             host=args.host,
             port=args.port,
-            reload=args.reload or settings.DEBUG,
+            reload=args.reload,
             workers=args.workers,
             log_level=args.log_level,
         )

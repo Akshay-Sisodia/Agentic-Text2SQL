@@ -37,6 +37,18 @@ export function ThemeProvider({
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
+     
+     // Add listener for changes to system theme preference
+     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+     const handleChange = () => {
+       if (theme === 'system') {
+         root.classList.remove('light', 'dark');
+         root.classList.add(mediaQuery.matches ? 'dark' : 'light');
+       }
+     };
+     
+     mediaQuery.addEventListener('change', handleChange);
+     return () => mediaQuery.removeEventListener('change', handleChange);
       return;
     }
 

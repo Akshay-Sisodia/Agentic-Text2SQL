@@ -1,1 +1,1 @@
-"""API endpoints for the Text-to-SQL system.""" 
+"""API endpoints for the Text-to-SQL system."""

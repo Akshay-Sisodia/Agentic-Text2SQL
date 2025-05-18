@@ -1,6 +1,6 @@
 {
   "buildCommand": "cd frontend && pnpm install && pnpm run build:no-check",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm install -g pnpm && pnpm --version",
+  "installCommand": "corepack enable && pnpm --version",
   "framework": null
 } 

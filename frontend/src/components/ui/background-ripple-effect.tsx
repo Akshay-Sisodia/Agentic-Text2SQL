@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
 import { useEffect, useRef, useState } from "react";
 import { motion, useAnimation } from "framer-motion";
+import { debounce, throttle } from "lodash";
 import { cn } from "../../lib/utils";
 
 interface BackgroundRippleEffectProps {
@@ -14,7 +16,7 @@ function BackgroundRippleEffect({ className }: BackgroundRippleEffectProps) {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const controls = useAnimation();
 
-  // Calculate grid dimensions based on container size
+  // Update dimensions on mount and resize
   useEffect(() => {
     if (containerRef.current) {
       const updateDimensions = () => {
@@ -22,14 +24,24 @@ function BackgroundRippleEffect({ className }: BackgroundRippleEffectProps) {
         setDimensions({ width, height });
       };
 
+      const debouncedUpdateDimensions = debounce(updateDimensions, 200);
+      
       updateDimensions();
-      window.addEventListener("resize", updateDimensions);
-      return () => window.removeEventListener("resize", updateDimensions);
+      window.addEventListener("resize", debouncedUpdateDimensions);
+      return () => window.removeEventListener("resize", debouncedUpdateDimensions);
     }
   }, []);
 
-  // Handle mouse movement to create ripple effect
+  // Handle mouse movement
   useEffect(() => {
+    const throttledAnimate = throttle((x: number, y: number) => {
+      controls.start({
+        opacity: [0.2, 0.1, 0],
+        scale: [1, 2, 3],
+        transition: { duration: 2 }
+      });
+    }, 50); // Throttle to 50ms
+
     const handleMouseMove = (e: MouseEvent) => {
       if (containerRef.current) {
         const { left, top } = containerRef.current.getBoundingClientRect();
@@ -39,14 +51,9 @@ function BackgroundRippleEffect({ className }: BackgroundRippleEffectProps) {
         });
         
         // Animate the ripple
-        controls.start({
-          opacity: [0.2, 0.1, 0],
-          scale: [1, 2, 3],
-          transition: { duration: 2 }
-        });
+        throttledAnimate(e.clientX - left, e.clientY - top);
       }
     };
-
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [controls]);
@@ -55,6 +62,57 @@ function BackgroundRippleEffect({ className }: BackgroundRippleEffectProps) {
   const cellSize = 60; // Size of each grid cell
   const cols = Math.ceil(dimensions.width / cellSize) + 1;
   const rows = Math.ceil(dimensions.height / cellSize) + 1;
+  const maxDistance = 400; // Maximum distance for glow effect
+
+  // Grid cell component for optimization
+  const GridCell = React.memo(({ 
+    rowIndex, 
+    colIndex, 
+    cellSize, 
+    mousePosition, 
+    maxDistance 
+  }: {
+    rowIndex: number;
+    colIndex: number;
+    cellSize: number;
+    mousePosition: { x: number; y: number };
+    maxDistance: number;
+  }) => {
+    const x = colIndex * cellSize;
+    const y = rowIndex * cellSize;
+    
+    const distance = Math.sqrt(
+      Math.pow(mousePosition.x - (x + cellSize / 2), 2) +
+      Math.pow(mousePosition.y - (y + cellSize / 2), 2)
+    );
+    
+    const proximity = Math.max(0, 1 - distance / maxDistance);
+    
+    return (
+      <motion.div
+        className="border border-gray-800/30"
+        style={{ 
+          width: cellSize, 
+          height: cellSize,
+          backgroundColor: `rgba(98, 58, 162, ${proximity * 0.1})` 
+        }}
+        animate={{
+          backgroundColor: [
+            `rgba(98, 58, 162, ${proximity * 0.1})`,
+            `rgba(61, 65, 175, ${proximity * 0.2})`,
+            `rgba(98, 58, 162, ${proximity * 0.1})`
+          ]
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          repeatType: "reverse",
+          ease: "easeInOut",
+          delay: (rowIndex + colIndex) * 0.05 % 1
+        }}
+      />
+    );
+  });
 
   return (
     <div
@@ -64,49 +122,20 @@ function BackgroundRippleEffect({ className }: BackgroundRippleEffectProps) {
         className
       )}
     >
-      {/* Grid of cells */}
-      <div className="absolute inset-0 opacity-30">
+      {/* Grid pattern */}
+      <div className="absolute inset-0">
         {Array.from({ length: rows }).map((_, rowIndex) => (
           <div key={`row-${rowIndex}`} className="flex">
-            {Array.from({ length: cols }).map((_, colIndex) => {
-              // Calculate distance from mouse to determine glow intensity
-              const x = colIndex * cellSize;
-              const y = rowIndex * cellSize;
-              
-              const distance = Math.sqrt(
-                Math.pow(mousePosition.x - (x + cellSize / 2), 2) +
-                Math.pow(mousePosition.y - (y + cellSize / 2), 2)
-              );
-              
-              const maxDistance = 400; // Maximum distance for glow effect
-              const proximity = Math.max(0, 1 - distance / maxDistance);
-              
-              return (
-                <motion.div
-                  key={`cell-${rowIndex}-${colIndex}`}
-                  className="border border-gray-800/30"
-                  style={{ 
-                    width: cellSize, 
-                    height: cellSize,
-                    backgroundColor: `rgba(98, 58, 162, ${proximity * 0.1})` 
-                  }}
-                  animate={{
-                    backgroundColor: [
-                      `rgba(98, 58, 162, ${proximity * 0.1})`,
-                      `rgba(61, 65, 175, ${proximity * 0.2})`,
-                      `rgba(98, 58, 162, ${proximity * 0.1})`
-                    ]
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    repeatType: "reverse",
-                    ease: "easeInOut",
-                    delay: (rowIndex + colIndex) * 0.05 % 1 // Creates a wave effect
-                  }}
-                />
-              );
-            })}
+            {Array.from({ length: cols }).map((_, colIndex) => (
+              <GridCell
+                key={`cell-${rowIndex}-${colIndex}`}
+                rowIndex={rowIndex}
+                colIndex={colIndex}
+                cellSize={cellSize}
+                mousePosition={mousePosition}
+                maxDistance={maxDistance}
+              />
+            ))}
           </div>
         ))}
       </div>

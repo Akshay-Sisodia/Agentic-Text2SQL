@@ -11,9 +11,21 @@ A production-level agentic system for converting natural language to SQL using L
 - Enhanced Intent Classification with PydanticAI
 - Multi-database support with SQLAlchemy
 - Comes with a sample database for immediate use without configuration
+- Smart entity detection with Levenshtein distance for fuzzy matching table and column names
+- Comprehensive database optimization tools for all supported database types
+- Persistent conversation storage with SQLite backend
+- Comprehensive SQL validation with performance optimization suggestions
 
 ## Recent Updates
 
+- Added database optimization for SQL Server and Oracle with database-specific tuning
+- Enhanced index suggestion logic using database-specific mechanisms (DMVs for SQL Server, etc.)
+- Added database optimization command in CLI for analyzing and improving database performance
+- Implemented Levenshtein distance algorithm for better column and table name suggestions
+- Added persistent conversation storage with database backend
+- Enhanced SQLite schema extraction using true async operations
+- Added detection of missing indices and optimization suggestions in SQL validation
+- Improved entity name disambiguation with similarity matching
 - Added built-in sample database for out-of-the-box functionality
 - Added enhanced Intent Classification Agent using PydanticAI with improved schema awareness
 - Implemented error handling and retry logic for robust agent behavior
@@ -55,7 +67,32 @@ Then visit `http://localhost:8000` in your browser.
 ### CLI
 
 ```bash
+# Run a natural language query
 python cli.py query "Show me all products with price greater than $50"
+
+# Run in interactive mode
+python cli.py query --interactive
+
+# Execute raw SQL
+python cli.py run-sql "SELECT * FROM products LIMIT 10"
+
+# Display database schema
+python cli.py schema
+
+# Optimize database performance
+python cli.py optimize --suggest-indices
+```
+
+### Database Optimization
+
+The system includes built-in database optimization tools:
+
+```bash
+# Basic optimization (runs database-specific analysis)
+python cli.py optimize
+
+# Suggest potential indices for performance improvement
+python cli.py optimize --suggest-indices
 ```
 
 ## Sample Database
@@ -80,7 +117,7 @@ See `.env.example` for available configuration options.
 
 ## Contributing
 
-See [PROJECT_CHECKLIST.md](PROJECT_CHECKLIST.md) for project status and roadmap.
+ See the [GitHub Issues](https://github.com/akshay-sisodia/Agentic-Text2SQL/issues) for project status and roadmap.
 
 ## License
 

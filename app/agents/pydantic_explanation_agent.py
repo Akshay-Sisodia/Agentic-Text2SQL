@@ -1,36 +1,26 @@
 # -*- coding: utf-8 -*-
 """Enhanced Explanation Agent using PydanticAI."""
 
-import json
 import logging
 import time
 import traceback
-from typing import Dict, List, Optional, Any, Union
+from typing import Union, Optional, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
 from app.core.config import settings
-from app.schemas.response import (
-    ExplanationType, QueryResult, UserExplanation
-)
+from app.schemas.response import ExplanationType, QueryResult, UserExplanation
 from app.schemas.sql import SQLGenerationOutput
 from app.schemas.user_query import UserQuery
-
-# Set DSPY_AVAILABLE to False permanently
-DSPY_AVAILABLE = False
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
-# Variables for optimized predictor
-dspy_predictor = None
-dspy_enhanced_predictor = None
-is_optimized = False
 
 class ExplanationInput(BaseModel):
     """Input model for the explanation agent."""
-    
+
     user_query: UserQuery
     sql_generation: SQLGenerationOutput
     query_result: QueryResult
@@ -68,81 +58,59 @@ enhanced_explanation_agent = Agent(
     - A list of SQL concepts referenced
     - A one-line query summary
     - A clause-by-clause breakdown for TECHNICAL and EDUCATIONAL types
-    """
+    """,
 )
-
-
-def optimize_predictor(training_examples=None):
-    """Optimize the explanation predictor with training data."""
-    global is_optimized
-    
-    # We always set is_optimized to True even though we're not using DSPy
-    is_optimized = True
-    
-    # Log that we're skipping DSPy optimization
-    logger.info("DSPy optimization is disabled, skipping optimization")
-    
-    return None  # Return None since we're not creating an optimized predictor
 
 
 @enhanced_explanation_agent.system_prompt
 def add_explanation_context(ctx: RunContext[ExplanationInput]) -> str:
     """
     Add context for SQL query explanation.
-    
+
     Args:
         ctx: Run context with explanation input
-        
+
     Returns:
         str: Context information as formatted string
     """
     user_query = ctx.deps.user_query.text
     sql = ctx.deps.sql_generation.sql
     explanation_type = ctx.deps.explanation_type
-    
-    # Format the query result
-    result_str = "Query returned no results."
-    if ctx.deps.query_result.rows:
-        result_rows = []
-        
-        # Get column information
-        if isinstance(ctx.deps.query_result.columns, list) and ctx.deps.query_result.columns:
-            # Check if columns are dictionaries or strings
-            if isinstance(ctx.deps.query_result.columns[0], dict):
-                # Extract column names from dictionaries
-                headers = [col.get('name', 'Unknown') for col in ctx.deps.query_result.columns]
-            else:
-                # Already strings
-                headers = ctx.deps.query_result.columns
-        elif ctx.deps.query_result.column_names:
-            # Use column_names if available
-            headers = ctx.deps.query_result.column_names
-        else:
-            # Fallback
-            headers = ["Column_" + str(i) for i in range(len(ctx.deps.query_result.rows[0]))]
-        
-        # Add header row
-        result_rows.append(" | ".join(str(h) for h in headers))
-        result_rows.append("-" * (sum(len(str(h)) for h in headers) + 3 * len(headers)))
-        
-        # Add data rows (limit to 5 for brevity)
-        for row in ctx.deps.query_result.rows[:5]:
-            # Handle both list and dict row formats
-            if isinstance(row, dict):
-                result_rows.append(" | ".join(str(row.get(h, '')) for h in headers))
-            else:
-                result_rows.append(" | ".join(str(cell) for cell in row))
-            
-        if len(ctx.deps.query_result.rows) > 5:
-            result_rows.append("... and more rows (showing 5 of " + 
-                               str(len(ctx.deps.query_result.rows)) + ")")
-            
-        result_str = "\n".join(result_rows)
-    elif ctx.deps.query_result.error_message:
-        result_str = f"Query Error: {ctx.deps.query_result.error_message}"
-    elif hasattr(ctx.deps.query_result, 'message') and ctx.deps.query_result.message:
-        result_str = f"Message: {ctx.deps.query_result.message}"
-        
+
+    # Format the query result information without including actual data
+    result_metadata = ""
+    if ctx.deps.query_result:
+        if (
+            hasattr(ctx.deps.query_result, "row_count")
+            and ctx.deps.query_result.row_count is not None
+        ):
+            result_metadata += (
+                f"Query returned {ctx.deps.query_result.row_count} rows. "
+            )
+
+        if (
+            hasattr(ctx.deps.query_result, "column_names")
+            and ctx.deps.query_result.column_names
+        ):
+            column_names = ctx.deps.query_result.column_names
+            result_metadata += f"Columns returned: {', '.join(column_names)}. "
+
+        if (
+            hasattr(ctx.deps.query_result, "execution_time")
+            and ctx.deps.query_result.execution_time
+        ):
+            result_metadata += (
+                f"Execution took {ctx.deps.query_result.execution_time} seconds. "
+            )
+
+        if (
+            hasattr(ctx.deps.query_result, "error_message")
+            and ctx.deps.query_result.error_message
+        ):
+            result_metadata += f"Query error: {ctx.deps.query_result.error_message}"
+    else:
+        result_metadata = "No query execution information available."
+
     # Format explanation type guidance
     explanation_guidance = ""
     if explanation_type == ExplanationType.TECHNICAL:
@@ -166,7 +134,7 @@ def add_explanation_context(ctx: RunContext[ExplanationInput]) -> str:
         Provide a SIMPLIFIED explanation with:
         - Plain language description of what the query does
         - Minimal technical jargon
-        - Focus on the real-world meaning of the results
+        - Focus on the real-world meaning of the query
         - No detailed SQL syntax explanations
         """
     elif explanation_type == ExplanationType.BRIEF:
@@ -176,7 +144,14 @@ def add_explanation_context(ctx: RunContext[ExplanationInput]) -> str:
         - Focus only on the core purpose of the query
         - Skip details about implementation or optimization
         """
-    
+    elif explanation_type == ExplanationType.CONVERSATIONAL:
+        explanation_guidance = """
+        Provide a CONVERSATIONAL explanation with:
+        - Natural, friendly language
+        - Focus on answering what the user really wants to know
+        - Avoid technical details unless directly relevant
+        """
+
     return f"""
     You need to explain the following SQL query:
     
@@ -187,8 +162,8 @@ def add_explanation_context(ctx: RunContext[ExplanationInput]) -> str:
     The query was generated for this user question:
     "{user_query}"
     
-    Query Results:
-    {result_str}
+    Query execution information:
+    {result_metadata}
     
     Explanation Type: {explanation_type.value}
     {explanation_guidance}
@@ -197,6 +172,10 @@ def add_explanation_context(ctx: RunContext[ExplanationInput]) -> str:
     - Tables referenced: {", ".join(ctx.deps.sql_generation.referenced_tables)}
     - Columns referenced: {", ".join(ctx.deps.sql_generation.referenced_columns)}
     - Query type: {ctx.deps.sql_generation.metadata.get("query_type", "Unknown")}
+    
+    IMPORTANT: DO NOT refer to specific data values from the query results in your explanation,
+    as you don't have access to the actual data. Focus only on explaining the query structure
+    and its purpose based on the SQL and user question.
     
     Provide your explanation with these components:
     1. text: A natural language explanation
@@ -211,52 +190,66 @@ async def generate_explanation_enhanced(
     sql_generation: SQLGenerationOutput,
     query_result: QueryResult,
     explanation_type: ExplanationType = ExplanationType.SIMPLIFIED,
-    use_dspy: bool = False,  # DSPy is not available so this defaults to False
-    database_info: Optional[Any] = None  # Add database_info parameter
+    use_dspy: bool = False,
+    database_info: Optional[Dict] = None,
 ) -> UserExplanation:
     """
     Enhanced explanation generation using PydanticAI.
-    
+
     Args:
         user_query: User's original query
         sql_generation: Generated SQL and metadata
         query_result: Results from executing the SQL
         explanation_type: Type of explanation to generate
-        use_dspy: Set to False since DSPy is not available
-        database_info: Optional database schema information (not used but included for compatibility)
-        
+        use_dspy: Whether to use DSPy optimization (not used, kept for compatibility)
+        database_info: Optional database schema information (not used, kept for compatibility)
+
     Returns:
         UserExplanation: Generated explanation
     """
     try:
+        # Check if this is a conversational query from metadata
+        if getattr(sql_generation, "metadata", None) and sql_generation.metadata.get(
+            "is_conversational"
+        ):
+            # For conversational queries, just return the explanation from SQL generation
+            # without any additional framing text
+            return UserExplanation(
+                type=explanation_type,
+                text=getattr(sql_generation, "explanation", "")  # safe access
+            )
+
         # Convert string to UserQuery if needed
         if isinstance(user_query, str):
             user_query_obj = UserQuery(text=user_query)
         else:
             user_query_obj = user_query
-            
+
         # Create input for explanation generation
         input_data = ExplanationInput(
             user_query=user_query_obj,
             sql_generation=sql_generation,
             query_result=query_result,
-            explanation_type=explanation_type
+            explanation_type=explanation_type,
         )
-        
+
         start_time = time.time()
         response = await enhanced_explanation_agent.run("", deps=input_data)
         elapsed = time.time() - start_time
-        
+
         # Log performance metrics
         logger.info(f"Explanation generation completed in {elapsed:.2f}s")
-        
+
         return response.data
     except Exception as e:
         # Log the error and traceback
         logger.error(f"Unexpected error in enhanced explanation generation: {str(e)}")
         logger.error(traceback.format_exc())
-        
+
         # Fall back to base generator
         from app.agents.base_explanation_agent import generate_explanation
+
         logger.info("Falling back to base explanation generator")
-        return await generate_explanation(user_query, sql_generation, query_result, explanation_type) 
+        return await generate_explanation(
+            user_query, sql_generation, query_result, explanation_type
+        )

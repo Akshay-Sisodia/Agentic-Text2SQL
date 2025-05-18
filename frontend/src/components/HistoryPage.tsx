@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Search, Trash2, MessageSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getQueryHistory, deleteQueryHistory } from '@/lib/api';
 
@@ -13,6 +14,7 @@ interface HistoryItem {
 }
 
 export function HistoryPage() {
+  const navigate = useNavigate();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,12 @@ export function HistoryPage() {
     } catch (err) {
       console.error('Error fetching history:', err);
       setError('Failed to load query history. Please try again.');
+      // If you have a toast notification system
+      // showToast({
+      //   type: 'error',
+      //   message: 'Failed to load query history',
+      //   duration: 3000
+      // });
     } finally {
       setLoading(false);
     }
@@ -93,8 +101,14 @@ export function HistoryPage() {
         </div>
 
         {error && (
-          <div className="bg-red-900/20 border border-red-500/20 text-red-300 p-4 rounded-md mb-6">
-            {error}
+          <div className="bg-red-900/20 border border-red-500/20 text-red-300 p-4 rounded-md mb-6 flex justify-between items-center">
+            <span>{error}</span>
+            <button 
+              onClick={fetchHistory} 
+              className="px-3 py-1 bg-red-800/30 hover:bg-red-700/40 rounded text-sm transition-colors"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -179,7 +193,7 @@ export function HistoryPage() {
                           onClick={() => {
                             if (selectedItem.conversation_id) {
                               // Navigate to the chat with the conversation ID
-                              window.location.href = `/dashboard?conversation=${selectedItem.conversation_id}`;
+                              navigate(`/dashboard?conversation=${selectedItem.conversation_id}`);
                             }
                           }}
                           disabled={!selectedItem.conversation_id}

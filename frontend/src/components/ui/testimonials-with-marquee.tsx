@@ -25,41 +25,33 @@ export function TestimonialsSection({
   const [isPaused, setIsPaused] = useState(false);
   
   // Measure the width of the marquee content for a more accurate animation
-  useEffect(() => {
-    // Update on window resize
-    const handleResize = () => {
-      // Keep the resize handler for future use
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [testimonials.length]);
+
   
   return (
     <section className={cn(
       "relative bg-black overflow-hidden",
-      "pt-8 pb-20",
+      "pt-6 pb-12 md:pt-8 md:pb-20",
       className
     )}>
       {/* Decorative elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-[5%] w-72 h-72 bg-purple-500/10 rounded-full filter blur-3xl" />
-        <div className="absolute bottom-40 right-[10%] w-72 h-72 bg-blue-500/10 rounded-full filter blur-3xl" />
+        <div className="absolute top-20 left-[5%] w-48 md:w-72 h-48 md:h-72 bg-purple-500/10 rounded-full filter blur-3xl" />
+        <div className="absolute bottom-40 right-[10%] w-48 md:w-72 h-48 md:h-72 bg-blue-500/10 rounded-full filter blur-3xl" />
       </div>
       
-      <div className="container mx-auto max-w-7xl flex flex-col items-center gap-8 sm:gap-12">
+      <div className="container mx-auto max-w-7xl flex flex-col items-center gap-6 md:gap-12 px-4">
         <motion.div 
-          className="text-center mb-8"
+          className="text-center mb-4 md:mb-8"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
           style={{ position: 'relative' }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 bg-clip-text text-transparent mb-4 sm:mb-6">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 bg-clip-text text-transparent mb-3 sm:mb-6">
             {title}
           </h2>
-          <p className="text-md max-w-[600px] mx-auto text-white/70 sm:text-lg">
+          <p className="text-sm md:text-md max-w-[600px] mx-auto text-white/70 sm:text-lg">
             {description}
           </p>
         </motion.div>
@@ -75,37 +67,38 @@ export function TestimonialsSection({
           >
             {/* Single marquee row with pause on hover */}
             <div 
-              className="flex overflow-hidden [--duration:40s] [--gap:1.5rem] hover-pause-container"
+              className="flex overflow-hidden [--duration:40s] [--gap:1rem] md:[--gap:1.5rem] hover-pause-container"
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
-              style={{
-                "--pause-state": isPaused ? "paused" : "running"
-              } as React.CSSProperties}
+ style={{
+   "--pause-state": isPaused ? "paused" : "running"
+ } as React.CSSProperties & { '--pause-state': string }}
             >
               <div 
                 ref={marqueeRef}
-                className="flex items-center [gap:var(--gap)] py-4 pl-4 animate-marquee"
+                className="flex items-center [gap:var(--gap)] py-2 md:py-4 pl-2 md:pl-4 animate-marquee"
                 style={{ 
                   willChange: "transform",
                   animationPlayState: "var(--pause-state)"
                 }}
               >
                 {/* Duplicate testimonials multiple times for seamless loop */}
-                {[...Array(2)].map((_, dupIndex) => (
-                  testimonials.map((testimonial, i) => (
-                    <TestimonialCard 
-                      key={`first-${dupIndex}-${i}`}
-                      {...testimonial}
-                      className="border border-white/10 min-w-[280px] sm:min-w-[320px] flex-shrink-0"
-                    />
-                  ))
-                ))}
+ {/* Only duplicate if needed for sufficient marquee content */}
+ {(testimonials.length < 5 ? [...Array(2)] : [0]).map((_, dupIndex) => (
+   testimonials.map((testimonial, i) => (
+     <TestimonialCard 
+       key={`first-${dupIndex}-${i}`}
+       {...testimonial}
+       className="border border-white/10 min-w-[230px] xs:min-w-[260px] sm:min-w-[280px] md:min-w-[320px] flex-shrink-0"
+     />
+   ))
+ ))}
               </div>
               
               {/* Clone of first marquee for seamless loop */}
               <div 
                 aria-hidden="true"
-                className="flex items-center [gap:var(--gap)] py-4 pl-4 animate-marquee"
+                className="flex items-center [gap:var(--gap)] py-2 md:py-4 pl-2 md:pl-4 animate-marquee"
                 style={{ 
                   willChange: "transform",
                   animationPlayState: "var(--pause-state)"
@@ -117,7 +110,7 @@ export function TestimonialsSection({
                     <TestimonialCard 
                       key={`second-${dupIndex}-${i}`}
                       {...testimonial}
-                      className="border border-white/10 min-w-[280px] sm:min-w-[320px] flex-shrink-0"
+                      className="border border-white/10 min-w-[230px] xs:min-w-[260px] sm:min-w-[280px] md:min-w-[320px] flex-shrink-0"
                     />
                   ))
                 ))}

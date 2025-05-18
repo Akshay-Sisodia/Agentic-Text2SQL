@@ -1,1 +1,1 @@
-"""Core functionality for the Text-to-SQL system.""" 
+"""Core functionality for the Text-to-SQL system."""

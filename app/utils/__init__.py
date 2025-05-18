@@ -1,1 +1,1 @@
-"""Utilities for the Text-to-SQL system.""" 
+"""Utilities for the Text-to-SQL system."""

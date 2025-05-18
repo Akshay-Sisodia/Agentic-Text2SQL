@@ -4,6 +4,16 @@ import { Lock, User, ArrowRight, Github } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
+// Background gradient component
+const BackgroundGradient = ({ className }: { className?: string }) => {
+  return (
+    <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", className)}>
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
+    </div>
+  );
+};
+
 export function LoginPage() {
   const [credentials, setCredentials] = useState({
     username: '',
@@ -31,12 +41,16 @@ export function LoginPage() {
       // In a real app, you would actually check credentials with an API
       // For now, we'll simulate a login
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      // Use environment variables for demo credentials
+      const validUsername = import.meta.env.VITE_DEMO_USERNAME || 'demo';
+      const validPassword = import.meta.env.VITE_DEMO_PASSWORD || 'password';
+
       // Simulate credentials check
-      if (credentials.username === 'demo' && credentials.password === 'password') {
+      if (credentials.username === validUsername && credentials.password === validPassword) {
         // Set login state (would use actual auth logic in a real app)
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('user', JSON.stringify({ username: credentials.username }));
+        sessionStorage.setItem('isAuthenticated', 'true');
+        sessionStorage.setItem('user', JSON.stringify({ username: credentials.username }));
         
         // Redirect to dashboard
         navigate('/dashboard');
@@ -54,11 +68,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
       {/* Background elements */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
-      </div>
-      
+      <BackgroundGradient />
       <div className="relative z-10 w-full max-w-md">
         <motion.div 
           className="bg-white/[0.03] backdrop-blur-md border border-white/[0.05] rounded-lg p-8"
@@ -143,9 +153,10 @@ export function LoginPage() {
                 </div>
                 
                 <div className="text-sm">
-                  <a href="#" className="text-indigo-400 hover:text-indigo-300">
+                  {/* Temporarily disable forgot password until implemented */}
+                  <span className="text-indigo-400 opacity-50 cursor-not-allowed" title="Coming soon">
                     Forgot password?
-                  </a>
+                  </span>
                 </div>
               </div>
               
@@ -179,18 +190,20 @@ export function LoginPage() {
             <div className="text-center">
               <p className="text-sm text-gray-400 mb-4">
                 Don't have an account?{' '}
-                <Link to="/register" className="text-indigo-400 hover:text-indigo-300">
+                {/* Option 1: Disable until implemented */}
+                <span className="text-indigo-400 opacity-50 cursor-not-allowed" title="Coming soon">
                   Sign up
-                </Link>
+                </span>
               </p>
               
               <p className="text-xs text-gray-500 mb-4">
-                Demo credentials: username "demo" / password "password"
+                This is a demo application. Contact admin for access credentials.
               </p>
               
               <div className="flex justify-center">
                 <button 
                   type="button"
+                  onClick={() => alert("GitHub authentication coming soon!")}
                   className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 rounded-md text-gray-300 transition-colors"
                 >
                   <Github className="w-4 h-4" />

@@ -259,9 +259,10 @@ export async function executeCustomSql(request: CustomSqlRequest) {
       body: JSON.stringify(request),
     });
     
-    if (!response.ok) {
-      throw new Error('Failed to execute custom SQL');
-    }
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message ?? 'Failed to execute custom SQL');
+  }
     
     return await response.json();
   } catch (error) {

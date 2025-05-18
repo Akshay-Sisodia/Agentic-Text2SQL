@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
+import { v4 as uuid } from "uuid";
+import { useNavigate } from "react-router-dom";
 import {
   CircleUserRound,
   SendIcon,
@@ -185,12 +187,16 @@ export function SQLChatbot() {
   const { connectionInfo } = useDatabaseConnection();
   const [statusEvents, setStatusEvents] = useState<{message: string, timestamp: Date}[]>([]);
   const [showStatus, setShowStatus] = useState(true);
+  const navigate = useNavigate();
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   useEffect(() => {
+    // Ensure we scroll to bottom when messages change
     scrollToBottom();
   }, [messages]);
   
@@ -208,27 +214,47 @@ export function SQLChatbot() {
   
   // Connect to status updates stream
   useEffect(() => {
-    const eventSource = createStatusUpdateStream();
-    
-    eventSource.addEventListener('status_update', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Only add status messages that indicate a change or initial connection
-        if (data.status_changed === true || data.message.includes('Connected to status stream')) {
-          setStatusEvents(prev => {
-            // Limit to only the 2 most recent status events
-            const newEvents = [...prev, { 
-              message: data.message,
-              timestamp: new Date()
-            }];
-            return newEvents.slice(-2);
-          });
+    const connectStatusStream = () => {
+      const eventSource = createStatusUpdateStream();
+      
+      eventSource.addEventListener('status_update', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Only add status messages that indicate a change or initial connection
+          if (data.status_changed === true || data.message.includes('Connected to status stream')) {
+            setStatusEvents(prev => {
+              // Limit to only the 2 most recent status events
+              const newEvents = [...prev, { 
+                message: data.message,
+                timestamp: new Date()
+              }];
+              return newEvents.slice(-2);
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing status event:', error);
         }
-      } catch (error) {
-        console.error('Error parsing status event:', error);
-      }
-    });
+      });
+      
+      eventSource.onerror = (err) => {
+        console.error("Status stream error:", err);
+        // Simple retry with exponential back-off
+        setTimeout(() => {
+          eventSource.close();
+          setStatusEvents(prev => [
+            ...prev,
+            { message: "Re-connecting to status stream...", timestamp: new Date() },
+          ]);
+          // open a fresh connection
+          connectStatusStream();
+        }, 2000);
+      };
+      
+      return eventSource;
+    };
+    
+    const eventSource = connectStatusStream();
     
     return () => {
       eventSource.close();
@@ -237,15 +263,15 @@ export function SQLChatbot() {
   
   // Load conversation from URL parameter
   useEffect(() => {
+    const abort = new AbortController();
     const loadConversation = async () => {
-      // Check for conversation_id in URL
-      const params = new URLSearchParams(window.location.search);
-      const conversationId = params.get('conversation');
-      
-      if (conversationId) {
+      try {
         setIsLoading(true);
-        try {
-          // Fetch conversation history
+        // Check for conversation_id in URL
+        const params = new URLSearchParams(window.location.search);
+        const conversationId = params.get('conversation');
+        
+        if (conversationId) {
           const history = await getConversationHistory(conversationId);
           
           if (history && history.length > 0) {
@@ -260,7 +286,7 @@ export function SQLChatbot() {
               // First, add the user message
               if (item.user_query && typeof item.user_query === 'object') {
                 convertedMessages.push({
-                  id: `user-${item.timestamp || Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                  id: uuid(),
                   role: "user",
                   content: item.user_query.text || "",
                   timestamp: new Date(item.timestamp || Date.now()),
@@ -268,7 +294,7 @@ export function SQLChatbot() {
               } else if (typeof item.query === 'string') {
                 // Fallback for older format
                 convertedMessages.push({
-                  id: `user-${item.timestamp || Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                  id: uuid(),
                   role: "user",
                   content: item.query,
                   timestamp: new Date(item.timestamp || Date.now()),
@@ -277,7 +303,7 @@ export function SQLChatbot() {
               
               // Then add the assistant response
               convertedMessages.push({
-                id: `assistant-${item.timestamp || Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                id: uuid(),
                 role: "assistant",
                 content: item.explanation?.text || "Here's the SQL for your query.",
                 timestamp: new Date(item.timestamp || Date.now()),
@@ -309,16 +335,18 @@ export function SQLChatbot() {
               console.log("Loaded conversation history:", convertedMessages);
             }
           }
-        } catch (error) {
-          console.error("Error loading conversation:", error);
-        } finally {
-          setIsLoading(false);
         }
+      } catch (error) {
+        console.error("Error loading conversation:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
     loadConversation();
-  }, []);
+    
+    return () => abort.abort();
+  }, [window.location.search]);
 
   const commandSuggestions: CommandSuggestion[] = [
     { 
@@ -393,7 +421,7 @@ export function SQLChatbot() {
 
   const handleDirectCommand = async (command: string) => {
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: uuid(),
       role: "user",
       content: command,
       timestamp: new Date(),
@@ -412,7 +440,7 @@ export function SQLChatbot() {
         
         // Create assistant message with schema data
         const assistantMessage: Message = {
-          id: Date.now().toString(),
+          id: uuid(),
           role: "assistant",
           content: "Here's your database schema information:",
           timestamp: new Date(),
@@ -423,12 +451,12 @@ export function SQLChatbot() {
         setMessages(prev => [...prev, assistantMessage]);
       } 
       else if (command.startsWith('/connect')) {
-        // Redirect to database connections page - using the correct route with tab parameter
-        window.location.href = '/dashboard?tab=connections';
+        // Redirect to database connections page
+        navigate('/dashboard?tab=connections');
         
         // Add a message indicating redirection
         const assistantMessage: Message = {
-          id: Date.now().toString(),
+          id: uuid(),
           role: "assistant",
           content: "Redirecting to database connections...",
           timestamp: new Date(),
@@ -440,7 +468,7 @@ export function SQLChatbot() {
       else if (command.startsWith('/help')) {
         // Show help information
         const assistantMessage: Message = {
-          id: Date.now().toString(),
+          id: uuid(),
           role: "assistant",
           content: "Here are some ways to interact with the Text-to-SQL chatbot:",
           timestamp: new Date(),
@@ -484,7 +512,7 @@ export function SQLChatbot() {
       setMessages(prev => [
         ...prev,
         {
-          id: Date.now().toString(),
+          id: uuid(),
           role: "assistant",
           content: `Error: Unable to execute the command. ${connectionInfo.connected ? "" : "Please make sure you're connected to a database."}`,
           timestamp: new Date(),
@@ -506,7 +534,7 @@ export function SQLChatbot() {
     }
     
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: uuid(),
       role: "user",
       content: value.trim(),
       timestamp: new Date(),
@@ -528,7 +556,7 @@ export function SQLChatbot() {
       
       // Create the assistant message
       const assistantMessage: Message = {
-        id: Date.now().toString(),
+        id: uuid(),
         role: "assistant",
         content: response.user_response.explanation?.text || "Here's the SQL for your query.",
         timestamp: new Date(),
@@ -543,7 +571,7 @@ export function SQLChatbot() {
       setMessages(prev => [
         ...prev,
         {
-          id: Date.now().toString(),
+          id: uuid(),
           role: "assistant",
           content: "Sorry, there was an error processing your query. Please try again.",
           timestamp: new Date(),
@@ -823,10 +851,10 @@ export function SQLChatbot() {
   return (
     <div className="flex flex-col h-full relative">
       {/* Messages container */}
-      <div className="flex-1 overflow-y-auto p-4 pb-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-4 space-y-6">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center px-4">
-            <div className="max-w-2xl w-full p-4">
+          <div className="h-full flex flex-col items-center justify-center text-center px-2 md:px-4">
+            <div className="max-w-2xl w-full p-2 md:p-4">
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -836,17 +864,17 @@ export function SQLChatbot() {
                 <Database className="w-8 h-8 text-white" />
               </motion.div>
               
-              <h1 className="text-2xl font-bold mb-3 bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
+              <h1 className="text-xl md:text-2xl font-bold mb-3 bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
                 Welcome to Text-to-SQL
               </h1>
-              <p className="text-gray-400 mb-6 text-base max-w-lg mx-auto">
+              <p className="text-gray-400 mb-6 text-sm md:text-base max-w-lg mx-auto">
                 Ask questions about your data in plain English and get SQL queries, results, and explanations.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3 max-w-2xl mx-auto">
                 {commandSuggestions.map((suggestion) => (
                   <motion.div 
                     key={suggestion.prefix}
-                    className="p-3 bg-white/[0.04] backdrop-blur-sm border border-white/[0.1] rounded-lg flex flex-col items-center gap-2 cursor-pointer hover:bg-white/[0.07] transition-colors"
+                    className="p-2 md:p-3 bg-white/[0.04] backdrop-blur-sm border border-white/[0.1] rounded-lg flex flex-col items-center gap-1 md:gap-2 cursor-pointer hover:bg-white/[0.07] transition-colors"
                     onClick={() => setValue(suggestion.prefix + " ")}
                     whileHover={{ y: -2, scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -868,12 +896,12 @@ export function SQLChatbot() {
               </div>
               
               <motion.div 
-                className="mt-8 flex justify-center"
+                className="mt-6 md:mt-8 flex justify-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5, duration: 0.5 }}
               >
-                <div className="inline-flex items-center gap-2 text-xs text-gray-400 border border-white/10 px-4 py-2 rounded-full">
+                <div className="inline-flex items-center gap-2 text-xs text-gray-400 border border-white/10 px-3 py-2 md:px-4 md:py-2 rounded-full">
                   <Zap className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Type a question below to get started</span>
                 </div>
@@ -885,7 +913,7 @@ export function SQLChatbot() {
             <motion.div
               key={message.id}
               className={cn(
-                "py-3",
+                "py-2 md:py-3",
                 index > 0 && "border-t border-white/[0.05]"
               )}
               initial={{ opacity: 0, y: 20 }}
@@ -893,66 +921,70 @@ export function SQLChatbot() {
               transition={{ delay: index * 0.1, duration: 0.3 }}
             >
               <div className={cn(
-                "flex gap-3 max-w-[95%] mx-auto px-1",
+                "flex gap-2 md:gap-3 max-w-[98%] md:max-w-[95%] mx-auto px-0 md:px-1",
                 message.role === "user" ? "flex-row-reverse" : "flex-row"
               )}>
                 <div className="mt-1 flex-shrink-0 flex flex-col items-center">
                   {message.role === "user" ? (
                     <>
-                      <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                        <CircleUserRound className="w-5 h-5" />
+                      <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <CircleUserRound className="w-4 h-4 md:w-5 md:h-5" />
                       </div>
-                      <span className="text-xs text-indigo-400 mt-1">You</span>
+                      <span className="text-[10px] md:text-xs text-indigo-400 mt-1">You</span>
                     </>
                   ) : (
                     <>
-                      <div className="w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
-                        <Database className="w-5 h-5" />
+                      <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                        <Database className="w-4 h-4 md:w-5 md:h-5" />
                       </div>
-                      <span className="text-xs text-violet-400 mt-1">Assistant</span>
+                      <span className="text-[10px] md:text-xs text-violet-400 mt-1">AI</span>
                     </>
                   )}
                 </div>
                 <div className={cn(
-                  "flex-1 max-w-[85%] p-3 rounded-lg",
+                  "flex-1 max-w-[85%] text-sm md:text-base p-2 md:p-3 rounded-lg",
                   message.role === "user" 
                     ? "ml-auto bg-indigo-900/20 border border-indigo-500/20" 
                     : "mr-auto bg-violet-900/20 border border-violet-500/20"
                 )}>
-                  <div className="prose prose-invert max-w-none">
+                  <div className="prose prose-invert prose-sm md:prose-base max-w-none">
                     {message.role === "user" ? (
                       <p className="text-white">{message.content}</p>
                     ) : (
                       <div>
                         {(message.response as any)?.sql_generation?.sql || (message.response as any)?.sql ? (
-                          <div className="mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Code className="w-4 h-4 text-indigo-400" />
-                              <h4 className="text-sm font-medium text-indigo-300 m-0">
+                          <div className="mb-3 md:mb-4">
+                            <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+                              <Code className="w-3 h-3 md:w-4 md:h-4 text-indigo-400" />
+                              <h4 className="text-xs md:text-sm font-medium text-indigo-300 m-0">
                                 Generated SQL
                               </h4>
                             </div>
+                            <div className="overflow-x-auto">
                             {renderSQLCode((message.response as any)?.sql_generation?.sql || (message.response as any)?.sql || "")}
+                            </div>
                           </div>
                         ) : null}
                         
                         {(message.response as any)?.query_result || (message.response as any)?.result ? (
-                          <div className="mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Table className="w-4 h-4 text-emerald-400" />
-                              <h4 className="text-sm font-medium text-emerald-300 m-0">
+                          <div className="mb-3 md:mb-4">
+                            <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+                              <Table className="w-3 h-3 md:w-4 md:h-4 text-emerald-400" />
+                              <h4 className="text-xs md:text-sm font-medium text-emerald-300 m-0">
                                 Query Results
                               </h4>
                             </div>
+                            <div className="overflow-x-auto">
                             {renderQueryResults((message.response as any)?.query_result || (message.response as any)?.result)}
+                            </div>
                           </div>
                         ) : null}
                         
                         {message.response?.explanation ? (
-                          <div className="mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <MessageSquare className="w-4 h-4 text-violet-400" />
-                              <h4 className="text-sm font-medium text-violet-300 m-0">
+                          <div className="mb-3 md:mb-4">
+                            <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+                              <MessageSquare className="w-3 h-3 md:w-4 md:h-4 text-violet-400" />
+                              <h4 className="text-xs md:text-sm font-medium text-violet-300 m-0">
                                 Explanation
                               </h4>
                             </div>
@@ -961,20 +993,22 @@ export function SQLChatbot() {
                         ) : null}
                         
                         {message.schema && (
-                          <div className="mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Database className="w-4 h-4 text-blue-400" />
-                              <h4 className="text-sm font-medium text-blue-300 m-0">
+                          <div className="mb-3 md:mb-4">
+                            <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+                              <Database className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+                              <h4 className="text-xs md:text-sm font-medium text-blue-300 m-0">
                                 Schema Information
                               </h4>
                             </div>
+                            <div className="overflow-x-auto">
                             {renderSchemaInfo(message.schema)}
+                            </div>
                           </div>
                         )}
                         
                         {message.response?.suggested_followups &&
                           message.response.suggested_followups.length > 0 && (
-                            <div className="mt-6">
+                            <div className="mt-4 md:mt-6">
                               {renderSuggestedFollowups(message.response.suggested_followups)}
                             </div>
                           )}
@@ -990,7 +1024,7 @@ export function SQLChatbot() {
       </div>
 
       {/* Input area */}
-      <div className="p-4 border-t border-white/10">
+      <div className="p-2 md:p-4 border-t border-white/10">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1007,7 +1041,7 @@ export function SQLChatbot() {
               }}
               onKeyDown={handleKeyDown}
               placeholder="Ask a question about your database..."
-              className="pr-12"
+              className="pr-12 text-sm md:text-base"
               disabled={isLoading}
             />
             <motion.div

@@ -57,8 +57,9 @@ export function ErrorPage({
           </Link>
           
           <button
-            onClick={() => navigate(-1)}
-            className="px-6 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 rounded-lg flex items-center justify-center gap-2 transition-colors"
+            title="Return to previous page"
+           onClick={() => navigate(-1)}
+           className="px-6 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 rounded-lg flex items-center justify-center gap-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Go Back</span>

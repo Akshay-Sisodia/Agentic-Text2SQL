@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     """Application settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        extra="ignore",
+        case_sensitive=False
     )
 
     # Project information
@@ -35,6 +38,9 @@ class Settings(BaseSettings):
     DB_PASSWORD: Optional[str] = None
     DB_HOST: Optional[str] = None
     DB_PORT: Optional[int] = None
+    
+    # Conversation database settings
+    CONVERSATION_DB_URL: Optional[str] = None
 
     # LLM settings
     LLM_PROVIDER: str = Field(default="groq")  # groq, openai, anthropic, etc.
@@ -52,4 +58,4 @@ settings = Settings()
 
 # Set GROQ_API_KEY env variable for Groq provider if not already set
 if settings.LLM_API_KEY and not os.environ.get("GROQ_API_KEY"):
-    os.environ["GROQ_API_KEY"] = settings.LLM_API_KEY 
+    os.environ["GROQ_API_KEY"] = settings.LLM_API_KEY

@@ -2,6 +2,11 @@ import { motion } from 'framer-motion';
 import { Info, Database, Code, Brain, Github, Twitter, Mail, ExternalLink } from 'lucide-react';
 
 export function AboutPage() {
+  // Define variables outside of JSX
+  const supportEmail = 'akshaysisodia.studies' + '@' + 'gmail.com';
+  // Hardcoded Twitter username
+  const twitterUsername = 'akshay__sisodia';
+
   return (
     <div className="flex-1 p-6 overflow-auto bg-black/30 backdrop-blur-sm">
       <div className="max-w-4xl mx-auto">
@@ -186,8 +191,9 @@ export function AboutPage() {
                 </div>
               </a>
               
+              {/* Twitter link (always visible now with default fallback) */}
               <a 
-                href="https://twitter.com/akshay__sisodia" 
+                href={`https://twitter.com/${twitterUsername}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center gap-3 hover:bg-white/[0.05] transition-colors"
@@ -196,20 +202,20 @@ export function AboutPage() {
                 <div>
                   <p className="text-white font-medium">Twitter</p>
                   <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <span>@akshay__sisodia</span>
+                    <span>@{twitterUsername}</span>
                     <ExternalLink className="w-3 h-3" />
                   </p>
                 </div>
               </a>
-              
+
               <a 
-                href="mailto:akshaysisodia.studies@gmail.com" 
+                href={`mailto:${supportEmail}`}
                 className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center gap-3 hover:bg-white/[0.05] transition-colors"
               >
                 <Mail className="w-5 h-5 text-gray-400" />
                 <div>
                   <p className="text-white font-medium">Email Support</p>
-                  <p className="text-xs text-gray-500">akshaysisodia.studies@gmail.com</p>
+                  <p className="text-xs text-gray-500">{supportEmail}</p>
                 </div>
               </a>
             </div>

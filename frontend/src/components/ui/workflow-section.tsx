@@ -3,6 +3,207 @@ import { useRef, useEffect } from 'react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { LucideBrain, LucideDatabase, LucideSearchCheck, LucideTable2, LucideCode } from 'lucide-react';
 
+// Define the StepContent component outside the main component
+const StepContent = ({ 
+  step, 
+  index, 
+  smoothPathLength 
+}: { 
+  step: any; 
+  index: number; 
+  smoothPathLength: any 
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  
+  // Calculate scroll-based thresholds for this step - adjusted to start earlier
+  const stepStartProgress = 0.05 + (index * 0.14);
+  const stepEndProgress = stepStartProgress + 0.16;
+  
+  // Map scroll progress to this step's visibility - modified to keep stages visible after completion
+  const stepOpacity = useTransform(
+    smoothPathLength,
+    [stepStartProgress - 0.05, stepStartProgress, stepEndProgress],
+    [0, 1, 1]
+  );
+  
+  // Y position transformation - modified to keep stages in place after completion
+  const stepY = useTransform(
+    smoothPathLength,
+    [stepStartProgress - 0.05, stepStartProgress],
+    [20, 0]
+  );
+  
+  // Calculate position to make it appear on alternating sides of the path
+  const isRight = index % 2 === 0;
+  
+  return (
+    <div className="py-28 first:py-12 last:pb-8" ref={ref}>
+      <div className={`flex items-center ${isRight ? 'justify-end md:mr-[calc(50%-180px)]' : 'justify-start md:ml-[calc(50%-180px)]'}`}>
+        <motion.div 
+          className={`relative md:max-w-[60%] ${isRight ? 'md:mr-16' : 'md:ml-16'} w-full max-w-[95%] mx-auto md:mx-0`}
+          style={{
+            opacity: stepOpacity,
+            y: stepY
+          }}
+        >
+          {/* Enhanced step content card with more dynamic effects */}
+          <motion.div 
+            className="relative bg-black/60 rounded-2xl border border-white/10 backdrop-blur-sm shadow-lg overflow-hidden"
+            whileHover={{ 
+              y: -5,
+              boxShadow: `0 15px 30px -10px ${step.glowColor}` 
+            }}
+            style={{ 
+              boxShadow: `0 5px 20px -5px ${step.glowColor}`,
+            }}
+          >
+            {/* Animated gradient background */}
+            <motion.div 
+              className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${step.color} opacity-10`}
+              animate={{ 
+                opacity: [0.05, 0.15, 0.05],
+                backgroundPosition: ['0% 0%', '100% 100%']
+              }}
+              transition={{ 
+                duration: 10,
+                repeat: Infinity,
+                repeatType: "reverse"
+              }}
+            />
+            
+            <div className="p-8 relative z-10">
+              {/* Step Icon and Title Section */}
+              <div className="flex items-center gap-5 mb-5">
+                <motion.div 
+                  className={`w-14 h-14 rounded-lg flex items-center justify-center bg-gradient-to-br ${step.color} shadow-lg`}
+                  style={{ boxShadow: `0 0 15px ${step.glowColor}` }}
+                  whileHover={{ 
+                    scale: 1.1,
+                    boxShadow: `0 0 20px ${step.glowColor}`
+                  }}
+                >
+                  <step.icon className="w-7 h-7 text-white" />
+                </motion.div>
+                <div>
+                  <div className="flex items-center">
+                    <span className={`bg-gradient-to-r ${step.color} text-transparent bg-clip-text text-2xl font-bold mr-2`}>0{index + 1}</span>
+                    <h3 className={`font-heading text-2xl font-bold bg-gradient-to-r ${step.color} bg-clip-text text-transparent`}>
+                      {step.title}
+                    </h3>
+                  </div>
+                  <p className="text-white/80 text-base mt-2">
+                    {step.description}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-5 mt-6">
+                {/* Input with enhanced styling */}
+                <motion.div 
+                  className="bg-black/70 rounded-lg p-5 border border-white/10"
+                  style={{
+                    opacity: useTransform(
+                      smoothPathLength,
+                      [stepStartProgress, stepStartProgress + 0.04],
+                      [0, 1]
+                    ),
+                    y: useTransform(
+                      smoothPathLength,
+                      [stepStartProgress, stepStartProgress + 0.04],
+                      [10, 0]
+                    )
+                  }}
+                >
+                  <h4 className="text-white/90 font-semibold text-xs uppercase tracking-wider mb-2">
+                    Input
+                  </h4>
+                  <div className="font-mono text-blue-300 text-sm overflow-x-auto max-h-32 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-blue-700/50">
+                    {typeof step.input === 'string' ? (
+                      <div className="whitespace-pre-wrap">{step.input}</div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap">{JSON.stringify(step.input, null, 2)}</pre>
+                    )}
+                  </div>
+                </motion.div>
+                
+                {/* Output with enhanced styling */}
+                <motion.div 
+                  className="bg-black/70 rounded-lg p-5 border border-white/10"
+                  style={{
+                    opacity: useTransform(
+                      smoothPathLength,
+                      [stepStartProgress + 0.02, stepStartProgress + 0.06],
+                      [0, 1]
+                    ),
+                    y: useTransform(
+                      smoothPathLength,
+                      [stepStartProgress + 0.02, stepStartProgress + 0.06],
+                      [10, 0]
+                    )
+                  }}
+                >
+                  <h4 className="text-white/90 font-semibold text-xs uppercase tracking-wider mb-2">
+                    Output
+                  </h4>
+                  <div className="font-mono text-green-300 text-sm overflow-x-auto max-h-48 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-green-700/50">
+                    {step.output === 'tableView' ? (
+                      <div>
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/10">
+                              <th className="text-left py-1 px-2 text-white/90">Region</th>
+                              <th className="text-left py-1 px-2 text-white/90">Total Revenue</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b border-white/5">
+                              <td className="py-1 px-2 text-white/80">North America</td>
+                              <td className="py-1 px-2 text-green-400">$342,876.50</td>
+                            </tr>
+                            <tr className="border-b border-white/5">
+                              <td className="py-1 px-2 text-white/80">Europe</td>
+                              <td className="py-1 px-2 text-green-400">$295,432.18</td>
+                            </tr>
+                            <tr className="border-b border-white/5">
+                              <td className="py-1 px-2 text-white/80">Asia Pacific</td>
+                              <td className="py-1 px-2 text-green-400">$187,654.32</td>
+                            </tr>
+                            <tr>
+                              <td className="py-1 px-2 text-white/80">Latin America</td>
+                              <td className="py-1 px-2 text-green-400">$98,756.75</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        {step.executionMetrics && (
+                          <div className="mt-3 pt-3 border-t border-white/10 text-xs text-white/60 flex flex-wrap gap-4">
+                            <div>
+                              <span className="font-semibold text-white/80">Time:</span> {step.executionMetrics.time}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-white/80">Rows:</span> {step.executionMetrics.rows}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-white/80">Optimizations:</span> {step.executionMetrics.optimizations}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : typeof step.output === 'string' ? (
+                      <div className="whitespace-pre-wrap">{step.output}</div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap">{JSON.stringify(step.output, null, 2)}</pre>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
 export default function WorkflowSection() {
   // Animation references and values
   const containerRef = useRef<HTMLElement>(null);
@@ -260,201 +461,14 @@ ORDER BY total_revenue DESC;`,
           
           {/* The actual content steps with improved design - now using scroll progress */}
           <div className="relative z-10">
-            {flowSteps.map((step, index) => {
-              const StepContent = () => {
-                const ref = useRef<HTMLDivElement>(null);
-                
-                // Calculate scroll-based thresholds for this step - adjusted to start earlier
-                const stepStartProgress = 0.05 + (index * 0.14);
-                const stepEndProgress = stepStartProgress + 0.16;
-                
-                // Map scroll progress to this step's visibility - modified to keep stages visible after completion
-                const stepOpacity = useTransform(
-                  smoothPathLength,
-                  [stepStartProgress - 0.05, stepStartProgress, stepEndProgress],
-                  [0, 1, 1]
-                );
-                
-                // Y position transformation - modified to keep stages in place after completion
-                const stepY = useTransform(
-                  smoothPathLength,
-                  [stepStartProgress - 0.05, stepStartProgress],
-                  [20, 0]
-                );
-                
-                // Calculate position to make it appear on alternating sides of the path
-                const isRight = index % 2 === 0;
-                
-                return (
-                  <div className="py-28 first:py-12 last:pb-8" ref={ref}>
-                    <div className={`flex items-center ${isRight ? 'justify-end md:mr-[calc(50%-180px)]' : 'justify-start md:ml-[calc(50%-180px)]'}`}>
-                      <motion.div 
-                        className={`relative md:max-w-[60%] ${isRight ? 'md:mr-16' : 'md:ml-16'} w-full max-w-[95%] mx-auto md:mx-0`}
-                        style={{
-                          opacity: stepOpacity,
-                          y: stepY
-                        }}
-                      >
-                        {/* Enhanced step content card with more dynamic effects */}
-                        <motion.div 
-                          className="relative bg-black/60 rounded-2xl border border-white/10 backdrop-blur-sm shadow-lg overflow-hidden"
-                          whileHover={{ 
-                            y: -5,
-                            boxShadow: `0 15px 30px -10px ${step.glowColor}` 
-                          }}
-                          style={{ 
-                            boxShadow: `0 5px 20px -5px ${step.glowColor}`,
-                          }}
-                        >
-                          {/* Animated gradient background */}
-                          <motion.div 
-                            className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${step.color} opacity-10`}
-                            animate={{ 
-                              opacity: [0.05, 0.15, 0.05],
-                              backgroundPosition: ['0% 0%', '100% 100%']
-                            }}
-                            transition={{ 
-                              duration: 10,
-                              repeat: Infinity,
-                              repeatType: "reverse"
-                            }}
-                          />
-                          
-                          <div className="p-8 relative z-10">
-                            {/* Step Icon and Title Section */}
-                            <div className="flex items-center gap-5 mb-5">
-                              <motion.div 
-                                className={`w-14 h-14 rounded-lg flex items-center justify-center bg-gradient-to-br ${step.color} shadow-lg`}
-                                style={{ boxShadow: `0 0 15px ${step.glowColor}` }}
-                                whileHover={{ 
-                                  scale: 1.1,
-                                  boxShadow: `0 0 20px ${step.glowColor}`
-                                }}
-                              >
-                                <step.icon className="w-7 h-7 text-white" />
-                              </motion.div>
-                              <div>
-                                <div className="flex items-center">
-                                  <span className={`bg-gradient-to-r ${step.color} text-transparent bg-clip-text text-2xl font-bold mr-2`}>0{index + 1}</span>
-                                  <h3 className={`font-heading text-2xl font-bold bg-gradient-to-r ${step.color} bg-clip-text text-transparent`}>
-                                    {step.title}
-                                  </h3>
-                                </div>
-                                <p className="text-white/80 text-base mt-2">
-                                  {step.description}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 gap-5 mt-6">
-                              {/* Input with enhanced styling */}
-                              <motion.div 
-                                className="bg-black/70 rounded-lg p-5 border border-white/10"
-                                style={{
-                                  opacity: useTransform(
-                                    smoothPathLength,
-                                    [stepStartProgress, stepStartProgress + 0.04],
-                                    [0, 1]
-                                  ),
-                                  y: useTransform(
-                                    smoothPathLength,
-                                    [stepStartProgress, stepStartProgress + 0.04],
-                                    [10, 0]
-                                  )
-                                }}
-                              >
-                                <h4 className="text-white/90 font-semibold text-xs uppercase tracking-wider mb-2">
-                                  Input
-                                </h4>
-                                <div className="font-mono text-blue-300 text-sm overflow-x-auto max-h-32 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-blue-700/50">
-                                  {typeof step.input === 'string' ? (
-                                    <div className="whitespace-pre-wrap">{step.input}</div>
-                                  ) : (
-                                    <pre className="whitespace-pre-wrap">{JSON.stringify(step.input, null, 2)}</pre>
-                                  )}
-                                </div>
-                              </motion.div>
-                              
-                              {/* Output with enhanced styling */}
-                              <motion.div 
-                                className="bg-black/70 rounded-lg p-5 border border-white/10"
-                                style={{
-                                  opacity: useTransform(
-                                    smoothPathLength,
-                                    [stepStartProgress + 0.02, stepStartProgress + 0.06],
-                                    [0, 1]
-                                  ),
-                                  y: useTransform(
-                                    smoothPathLength,
-                                    [stepStartProgress + 0.02, stepStartProgress + 0.06],
-                                    [10, 0]
-                                  )
-                                }}
-                              >
-                                <h4 className="text-white/90 font-semibold text-xs uppercase tracking-wider mb-2">
-                                  Output
-                                </h4>
-                                <div className="font-mono text-green-300 text-sm overflow-x-auto max-h-48 overflow-y-auto scrollbar-thin scrollbar-track-black/20 scrollbar-thumb-green-700/50">
-                                  {step.output === 'tableView' ? (
-                                    <div>
-                                      <table className="min-w-full text-sm">
-                                        <thead>
-                                          <tr className="border-b border-white/10">
-                                            <th className="text-left py-1 px-2 text-white/90">Region</th>
-                                            <th className="text-left py-1 px-2 text-white/90">Total Revenue</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          <tr className="border-b border-white/5">
-                                            <td className="py-1 px-2 text-white/80">North America</td>
-                                            <td className="py-1 px-2 text-green-400">$342,876.50</td>
-                                          </tr>
-                                          <tr className="border-b border-white/5">
-                                            <td className="py-1 px-2 text-white/80">Europe</td>
-                                            <td className="py-1 px-2 text-green-400">$295,432.18</td>
-                                          </tr>
-                                          <tr className="border-b border-white/5">
-                                            <td className="py-1 px-2 text-white/80">Asia Pacific</td>
-                                            <td className="py-1 px-2 text-green-400">$187,654.32</td>
-                                          </tr>
-                                          <tr>
-                                            <td className="py-1 px-2 text-white/80">Latin America</td>
-                                            <td className="py-1 px-2 text-green-400">$98,756.75</td>
-                                          </tr>
-                                        </tbody>
-                                      </table>
-                                      {step.executionMetrics && (
-                                        <div className="mt-3 pt-3 border-t border-white/10 text-xs text-white/60 flex flex-wrap gap-4">
-                                          <div>
-                                            <span className="font-semibold text-white/80">Time:</span> {step.executionMetrics.time}
-                                          </div>
-                                          <div>
-                                            <span className="font-semibold text-white/80">Rows:</span> {step.executionMetrics.rows}
-                                          </div>
-                                          <div>
-                                            <span className="font-semibold text-white/80">Optimizations:</span> {step.executionMetrics.optimizations}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : typeof step.output === 'string' ? (
-                                    <div className="whitespace-pre-wrap">{step.output}</div>
-                                  ) : (
-                                    <pre className="whitespace-pre-wrap">{JSON.stringify(step.output, null, 2)}</pre>
-                                  )}
-                                </div>
-                              </motion.div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      </motion.div>
-                    </div>
-                  </div>
-                );
-              };
-              
-              return <StepContent key={index} />;
-            })}
+            {flowSteps.map((step, index) => (
+              <StepContent 
+                key={step.title} 
+                step={step} 
+                index={index} 
+                smoothPathLength={smoothPathLength} 
+              />
+            ))}
           </div>
           
           {/* Final Result Box with enhanced effects */}

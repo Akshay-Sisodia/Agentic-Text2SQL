@@ -40,13 +40,15 @@ export default function Navbar() {
   }, []);
 
   // Function to handle smooth scrolling to sections
-  const scrollToSection = (href: string) => {
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-      setMobileMenuOpen(false);
-    }
-  };
+const scrollToSection = (href: string) => {
+  const element = document.querySelector(href);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth' });
+    setMobileMenuOpen(false);
+  } else {
+    console.warn(`Section with selector "${href}" not found`);
+  }
+};
 
   return (
     <motion.header
@@ -69,17 +71,17 @@ export default function Navbar() {
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
-              <motion.div 
-                className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-purple-600"
-                animate={{ 
-                  rotate: [0, 360],
-                }}
-                transition={{ 
-                  duration: 10, 
-                  repeat: Infinity, 
-                  ease: "linear" 
-                }}
-              />
+<motion.div 
+  className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-purple-600"
+  animate={{ 
+    rotate: [0, 360],
+  }}
+  transition={{ 
+    duration: 10, 
+   repeat: window.matchMedia('(prefers-reduced-motion: no-preference)').matches ? Infinity : 0,
+    ease: "linear" 
+  }}
+/>
               <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">
                 A
               </div>
@@ -113,12 +115,14 @@ export default function Navbar() {
 
           {/* Mobile Menu Toggle */}
           <div className="md:hidden">
-            <button 
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+<button 
+  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+  className="p-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors"
+ aria-expanded={mobileMenuOpen}
+ aria-label="Toggle navigation menu"
+>
+  {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+</button>
           </div>
         </nav>
       </div>

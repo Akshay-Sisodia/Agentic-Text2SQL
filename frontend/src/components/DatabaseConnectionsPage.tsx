@@ -18,41 +18,7 @@ export function DatabaseConnectionsPage() {
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
   const [useConnectionString, setUseConnectionString] = useState(false);
 
-  // Add custom scrollbar styles using useEffect
-  useEffect(() => {
-    // Create a style element
-    const styleElement = document.createElement('style');
-    
-    // Add scrollbar styles
-    styleElement.textContent = `
-      .db-connections-container::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      
-      .db-connections-container::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 4px;
-      }
-      
-      .db-connections-container::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-      }
-      
-      .db-connections-container::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.15);
-      }
-    `;
-    
-    // Append style to head
-    document.head.appendChild(styleElement);
-    
-    // Cleanup on unmount
-    return () => {
-      document.head.removeChild(styleElement);
-    };
-  }, []);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -62,10 +28,14 @@ export function DatabaseConnectionsPage() {
       setUseConnectionString(true);
     }
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'db_port' ? parseInt(value, 10) || '' : value
-    }));
+setFormData(prev => ({
+    ...prev,
+   [name]: name === 'db_port' 
+     ? (isNaN(parseInt(value, 10)) || parseInt(value, 10) < 1 || parseInt(value, 10) > 65535) 
+       ? '' 
+       : parseInt(value, 10)
+     : value
+  }));
   };
 
   const connectToSampleDatabase = async () => {
@@ -106,17 +76,23 @@ export function DatabaseConnectionsPage() {
             db_host: formData.db_host,
             db_port: formData.db_port
           };
-          
-      const result = await connect(connectionData);
-      setConnectionResult(result);
-    } catch (error) {
-      setConnectionResult({
-        success: false,
-        message: 'Failed to connect to database'
-      });
-    } finally {
-      setConnecting(false);
-    }
+const result = await connect(connectionData);
+  setConnectionResult(result);
+} catch (error) {
+  let errorMessage = 'Failed to connect to database';
+  
+  // Extract more specific error information when available
+  if (error instanceof Error) {
+    errorMessage = `Connection failed: ${error.message}`;
+  }
+  
+  setConnectionResult({
+    success: false,
+   message: errorMessage
+  });
+} finally {
+  setConnecting(false);
+}
   };
 
   return (
@@ -397,16 +373,18 @@ export function DatabaseConnectionsPage() {
                     </label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="password"
-                        id="db_password"
-                        name="db_password"
-                        value={formData.db_password}
-                        onChange={handleInputChange}
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-10 pr-3 py-2 text-white"
-                        required={!useConnectionString}
-                        disabled={useConnectionString}
-                      />
+<input
+    type="password"
+    id="db_password"
+    name="db_password"
+    value={formData.db_password}
+    onChange={handleInputChange}
+   autoComplete="new-password"
+   aria-autocomplete="none"
+    className="w-full bg-white/[0.03] border border-white/10 rounded-md pl-10 pr-3 py-2 text-white"
+    required={!useConnectionString}
+    disabled={useConnectionString}
+  />
                     </div>
                   </div>
                 </div>
