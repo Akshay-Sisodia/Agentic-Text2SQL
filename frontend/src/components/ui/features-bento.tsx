@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
+import BackgroundRippleEffect from "./background-ripple-effect";
 
 // Import icons - we'll use literals for simplicity here
 // You can replace these with actual icon imports from your preferred icon library
@@ -113,13 +114,18 @@ const features = [
 export default function FeaturesBento() {
   return (
     <section className="relative py-8 md:py-16 pb-4 md:pb-8 px-4 sm:px-6 md:px-8 lg:px-12 overflow-hidden">
+      {/* Add Background Effect */}
+      <div className="absolute inset-0 z-0">
+        <BackgroundRippleEffect className="opacity-100" />
+      </div>
+      
       {/* Decorative elements */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none z-10">
         <div className="absolute -top-40 right-[10%] w-48 md:w-72 h-48 md:h-72 bg-indigo-500/10 rounded-full filter blur-3xl" />
         <div className="absolute bottom-20 left-[5%] w-48 md:w-72 h-48 md:h-72 bg-blue-500/10 rounded-full filter blur-3xl" />
       </div>
       
-      <div className="container mx-auto max-w-7xl">
+      <div className="container mx-auto max-w-7xl relative z-20">
         <motion.div 
           className="text-center mb-8 md:mb-12"
           initial={{ opacity: 0, y: 20 }}
