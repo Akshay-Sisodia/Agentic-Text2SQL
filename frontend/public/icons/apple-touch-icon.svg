@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 256 256" fill="none">
   <!-- Background glowing gradient -->
   <rect width="256" height="256" rx="48" fill="url(#paint0_radial)" />
   
@@ -39,4 +39,4 @@
       <stop offset="1" stop-color="#4F46E5" stop-opacity="0.2"/>
     </linearGradient>
   </defs>
-</svg>
+</svg> 

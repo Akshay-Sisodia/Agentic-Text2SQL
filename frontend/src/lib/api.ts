@@ -340,4 +340,19 @@ export async function deleteQueryHistory(id: string): Promise<void> {
     console.error('Error deleting history item:', error);
     throw error;
   }
+}
+
+/**
+ * Create an SSE connection for status updates
+ * Returns an EventSource that can be used to listen for status updates
+ */
+export function createStatusUpdateStream(): EventSource {
+  const eventSource = new EventSource(`${API_BASE_URL}/status/stream`);
+  
+  eventSource.onerror = (error) => {
+    console.error('Error in status update stream:', error);
+    // Auto-reconnect is handled by the browser
+  };
+  
+  return eventSource;
 } 

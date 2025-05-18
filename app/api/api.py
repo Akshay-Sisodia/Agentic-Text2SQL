@@ -4,14 +4,16 @@ import datetime
 import os
 import uuid
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, AsyncGenerator
 from enum import Enum
 import traceback
 import time
 from contextlib import asynccontextmanager
+import asyncio
+import json
 
 from fastapi import FastAPI, HTTPException, Depends, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
@@ -1025,4 +1027,58 @@ async def delete_history_item(history_id: str):
     raise HTTPException(
         status_code=404,
         detail=f"History item with ID {history_id} not found"
+    ) 
+
+
+async def status_event_generator() -> AsyncGenerator[str, None]:
+    """
+    Generate status update events.
+    """
+    try:
+        # Initial status
+        yield f"data: {json.dumps({'message': 'Connected to status stream'})}\nevent: status_update\n\n"
+        
+        # Send status updates only when changes happen or every 30 seconds (instead of 5)
+        heartbeat_interval = 30
+        last_db_status = None
+        
+        while True:
+            # Query the database for status info
+            current_db_status = "Connected" if app.state.active_engine is not None else "Disconnected"
+            
+            # Only send an update if the status has changed or it's time for a heartbeat
+            if current_db_status != last_db_status:
+                # Include any relevant system status info
+                status_data = {
+                    "message": f"Database status: {current_db_status}",
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "status_changed": True,
+                    "system_info": {
+                        "active_connections": len(conversations) if hasattr(conversations, "__len__") else 0
+                    }
+                }
+                
+                # Format as SSE event
+                yield f"data: {json.dumps(status_data)}\nevent: status_update\n\n"
+                
+                # Update last status
+                last_db_status = current_db_status
+            
+            # Wait before checking again
+            await asyncio.sleep(heartbeat_interval)
+            
+    except asyncio.CancelledError:
+        # Clean shutdown of the generator when client disconnects
+        yield f"data: {json.dumps({'message': 'Status stream closed'})}\nevent: status_update\n\n"
+        raise
+
+
+@app.get(f"{settings.API_PREFIX}/status/stream")
+async def status_stream():
+    """
+    Stream server status updates as Server-Sent Events (SSE).
+    """
+    return StreamingResponse(
+        status_event_generator(),
+        media_type="text/event-stream"
     ) 

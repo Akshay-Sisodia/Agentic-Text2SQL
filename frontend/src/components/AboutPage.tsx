@@ -12,6 +12,9 @@ export function AboutPage() {
           <p className="text-gray-400">
             Transform natural language to SQL with advanced AI agents
           </p>
+          <p className="text-gray-300 mt-2">
+            Created by Akshay Sisodia
+          </p>
         </header>
 
         <div className="grid grid-cols-1 gap-8">
@@ -168,7 +171,7 @@ export function AboutPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <a 
-                href="https://github.com/your-username/agentic-text2sql" 
+                href="https://github.com/akshay-sisodia/agentic-text2sql" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center gap-3 hover:bg-white/[0.05] transition-colors"
@@ -177,14 +180,14 @@ export function AboutPage() {
                 <div>
                   <p className="text-white font-medium">GitHub Repository</p>
                   <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <span>View source code</span>
+                    <span>akshay-sisodia</span>
                     <ExternalLink className="w-3 h-3" />
                   </p>
                 </div>
               </a>
               
               <a 
-                href="https://twitter.com/your-handle" 
+                href="https://twitter.com/akshay__sisodia" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center gap-3 hover:bg-white/[0.05] transition-colors"
@@ -193,20 +196,20 @@ export function AboutPage() {
                 <div>
                   <p className="text-white font-medium">Twitter</p>
                   <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <span>Latest updates</span>
+                    <span>@akshay__sisodia</span>
                     <ExternalLink className="w-3 h-3" />
                   </p>
                 </div>
               </a>
               
               <a 
-                href="mailto:contact@example.com" 
+                href="mailto:akshaysisodia.studies@gmail.com" 
                 className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center gap-3 hover:bg-white/[0.05] transition-colors"
               >
                 <Mail className="w-5 h-5 text-gray-400" />
                 <div>
                   <p className="text-white font-medium">Email Support</p>
-                  <p className="text-xs text-gray-500">contact@example.com</p>
+                  <p className="text-xs text-gray-500">akshaysisodia.studies@gmail.com</p>
                 </div>
               </a>
             </div>

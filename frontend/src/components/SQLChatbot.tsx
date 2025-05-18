@@ -16,7 +16,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   processQuery, 
   getDatabaseSchema, 
-  getConversationHistory
+  getConversationHistory,
+  createStatusUpdateStream
 } from "@/lib/api";
 import type { 
   UserExplanation, 
@@ -182,6 +183,8 @@ export function SQLChatbot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const commandPaletteRef = useRef<HTMLDivElement>(null);
   const { connectionInfo } = useDatabaseConnection();
+  const [statusEvents, setStatusEvents] = useState<{message: string, timestamp: Date}[]>([]);
+  const [showStatus, setShowStatus] = useState(true);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -190,6 +193,47 @@ export function SQLChatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  
+  // Auto-hide status indicator after 5 seconds if it hasn't changed
+  useEffect(() => {
+    if (statusEvents.length > 0) {
+      setShowStatus(true);
+      const timer = setTimeout(() => {
+        setShowStatus(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [statusEvents]);
+  
+  // Connect to status updates stream
+  useEffect(() => {
+    const eventSource = createStatusUpdateStream();
+    
+    eventSource.addEventListener('status_update', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Only add status messages that indicate a change or initial connection
+        if (data.status_changed === true || data.message.includes('Connected to status stream')) {
+          setStatusEvents(prev => {
+            // Limit to only the 2 most recent status events
+            const newEvents = [...prev, { 
+              message: data.message,
+              timestamp: new Date()
+            }];
+            return newEvents.slice(-2);
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing status event:', error);
+      }
+    });
+    
+    return () => {
+      eventSource.close();
+    };
+  }, []);
   
   // Load conversation from URL parameter
   useEffect(() => {
@@ -748,10 +792,38 @@ export function SQLChatbot() {
     );
   };
 
+  const renderStatusIndicator = () => {
+    if (statusEvents.length === 0 || !showStatus) return null;
+    
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <motion.div 
+          className="bg-black/80 backdrop-blur-sm border border-white/10 rounded-md shadow-lg p-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span className="text-xs font-medium text-gray-300">System Status</span>
+          </div>
+          <div className="space-y-1.5 max-h-32 overflow-auto">
+            {statusEvents.map((event, i) => (
+              <div key={i} className="text-xs text-gray-400">
+                <span className="text-gray-500">{event.timestamp.toLocaleTimeString()}</span>
+                <span className="ml-2">{event.message}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col h-screen max-h-screen bg-transparent">
-      {/* Messages section */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-4">
+    <div className="flex flex-col h-full relative">
+      {/* Messages container */}
+      <div className="flex-1 overflow-y-auto p-4 pb-4 space-y-6">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <div className="max-w-2xl w-full p-4">
@@ -917,104 +989,49 @@ export function SQLChatbot() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Chat Input Area */}
-      <motion.div 
-        className="border-t border-white/[0.08] bg-black/40 backdrop-blur-md p-4 relative"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className="relative">
-          <Textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              adjustHeight();
-              if (e.target.value.startsWith("/")) {
-                setShowCommandPalette(true);
-              } else {
-                setShowCommandPalette(false);
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter your query in natural language..."
-            className="pr-12 bg-white/[0.03] border-white/[0.08] focus:border-indigo-500/40 transition-all rounded-xl"
-            disabled={isLoading}
-          />
-          <motion.button
-            className={cn(
-              "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
-              isLoading 
-                ? "bg-white/[0.05] text-gray-400 cursor-not-allowed" 
-                : "bg-white/[0.05] text-indigo-400 hover:bg-white/[0.08] hover:text-indigo-300"
-            )}
-            onClick={handleSendMessage}
-            disabled={isLoading || !value.trim()}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isLoading ? (
-              <LoaderIcon className="w-5 h-5 animate-spin" />
-            ) : (
-              <SendIcon className="w-5 h-5" />
-            )}
-          </motion.button>
-        </div>
-        
-        {/* Command palette */}
-        <AnimatePresence>
-          {showCommandPalette && (
+      {/* Input area */}
+      <div className="p-4 border-t border-white/10">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSendMessage();
+          }}
+        >
+          <div className="relative">
+            <Textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                adjustHeight();
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask a question about your database..."
+              className="pr-12"
+              disabled={isLoading}
+            />
             <motion.div
-              ref={commandPaletteRef}
-              className="absolute bottom-full left-0 w-full p-2"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.2 }}
+              className="absolute right-3 bottom-2.5"
+              animate={isLoading ? { rotate: 360 } : {}}
+              transition={isLoading ? { repeat: Infinity, duration: 1, ease: "linear" } : {}}
             >
-              <div className="bg-black/80 backdrop-blur-lg border border-white/[0.08] rounded-lg overflow-hidden shadow-xl">
-                <div className="p-2 border-b border-white/[0.08]">
-                  <p className="text-xs text-gray-400">Commands</p>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {commandSuggestions.map((command, index) => (
-                    <motion.div
-                      key={command.prefix}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 cursor-pointer",
-                        index === activeSuggestion
-                          ? "bg-indigo-600/20 text-indigo-300"
-                          : "hover:bg-white/[0.03] text-gray-300"
-                      )}
-                      onClick={() => selectCommandSuggestion(index)}
-                      whileHover={{ x: 4 }}
-                    >
-                      <div className="p-1.5 bg-white/[0.05] rounded-md text-indigo-400">
-                        {command.icon}
-                      </div>
-                      <div>
-                        <p className="font-medium">{command.label}</p>
-                        <p className="text-xs text-gray-500">{command.description}</p>
-                      </div>
-                      <div className="ml-auto px-2 py-1 bg-white/[0.05] rounded text-xs text-gray-500">
-                        {command.prefix}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className={cn(
+                  "rounded-md p-1.5 bg-violet-600 text-white flex items-center justify-center focus:outline-none",
+                  isLoading && "opacity-70"
+                )}
+              >
+                {isLoading ? <LoaderIcon className="w-4 h-4" /> : <SendIcon className="w-4 h-4" />}
+              </button>
             </motion.div>
-          )}
-        </AnimatePresence>
-        
-        <div className="flex justify-between items-center mt-2 px-1">
-          <div></div>
-          <div className="text-xs text-gray-500">
-            Press <kbd className="px-1.5 py-0.5 bg-white/[0.05] rounded text-gray-400 font-mono">Enter</kbd> to send
           </div>
-        </div>
-      </motion.div>
+        </form>
+      </div>
+
+      {/* Render status indicator */}
+      {renderStatusIndicator()}
     </div>
   );
 } 
